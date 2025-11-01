@@ -7,6 +7,7 @@
     ],
     "types": [
       "bun",
+      "node",
       "@cloudflare/workers-types",
       "typed-query-selector/strict"
     ],
