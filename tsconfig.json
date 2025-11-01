@@ -6,6 +6,7 @@
       "ESNext"
     ],
     "types": [
+      "bun",
       "@cloudflare/workers-types",
       "typed-query-selector/strict"
     ],
@@ -23,7 +24,8 @@
     "noEmit": true
   },
   "include": [
-    "./src/**/*"
+    "./src/**/*",
+    "./scripts/**/*"
   ],
   "files": [
     "reset.d.ts",

@@ -46,7 +46,7 @@ const fitTerminal = () => fitAddon.fit() ?? void 0
 
 setTimeout(fitTerminal, 100)
 
-window.addEventListener('resize', _event => setTimeout(fitTerminal, 50))
+window.addEventListener('resize', _ => setTimeout(fitTerminal, 50))
 
 /** @type {Array<string>} */
 const commandHistory = []
@@ -59,7 +59,10 @@ const prompt = () => [
   (cursorPosition = 0),
 ]
 
-const sessionId = `session-${Math.random().toString(36).substring(2, 9)}`
+const sessionId =
+  localStorage.getItem('sessionId') ||
+  `session-${Math.random().toString(36).substring(2, 9)}`
+localStorage.setItem('sessionId', sessionId)
 
 const statusText = document.querySelector('p#status-text')
 if (!statusText) throw new Error('Status text element not found')
@@ -248,4 +251,13 @@ async function initTerminal() {
   }
 }
 
-initTerminal()
+initTerminal().catch(error => {
+  console.error(error)
+  hideLoading()
+  updateStatus('Connection Failed', false)
+  writeLine('Failed to connect to sandbox. Please refresh the page.')
+  writeLine(
+    'Please report an issue at https://github.com/o-az/foundry-sandbox/issues',
+  )
+  writeLine('')
+})
