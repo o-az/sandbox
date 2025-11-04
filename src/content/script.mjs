@@ -5,6 +5,11 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { ClipboardAddon } from '@xterm/addon-clipboard'
 import { LigaturesAddon } from '@xterm/addon-ligatures'
 
+/**
+ * TODO:
+ * - [ ] Restore context of the terminal when the page is refreshed using [`@xterm/addon-serialization`](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-serialize)
+ */
+
 const terminal = new Terminal({
   fontSize: 18,
   scrollback: 1000,
@@ -72,8 +77,17 @@ terminal.attachCustomKeyEventHandler(
 const ligaturesAddon = new LigaturesAddon()
 terminal.loadAddon(ligaturesAddon)
 
-const webLinksAddon = new WebLinksAddon()
+const webLinksAddon = new WebLinksAddon(handleLink)
 terminal.loadAddon(webLinksAddon)
+
+/**
+ * @param {MouseEvent} event
+ * @param {string} url
+ */
+function handleLink(event, url) {
+  event.preventDefault()
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
 
 const fitTerminal = () => fitAddon.fit() ?? void 0
 setTimeout(fitTerminal, 100)

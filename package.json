@@ -12,7 +12,7 @@
     "check:types": "bun tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@cloudflare/sandbox": "^0.4.14"
+    "@cloudflare/sandbox": "^0.4.15"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.3",
@@ -28,7 +28,7 @@
     "@xterm/xterm": "^5.5.0",
     "typed-query-selector": "^2.12.0",
     "typescript": "^5.9.3",
-    "wrangler": "^4.45.3"
+    "wrangler": "^4.45.4"
   },
   "private": true,
   "license": "MIT",
