@@ -1,6 +1,9 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import { ClipboardAddon } from '@xterm/addon-clipboard'
+import { LigaturesAddon } from '@xterm/addon-ligatures'
 
 const terminal = new Terminal({
   fontSize: 18,
@@ -51,6 +54,27 @@ terminal.loadAddon(webglAddon)
 terminal.open(terminalElement)
 terminal.loadAddon(fitAddon)
 
+const clipboardAddon = new ClipboardAddon({
+  readText: () => navigator.clipboard.readText(),
+  writeText: text => navigator.clipboard.writeText(text),
+})
+terminal.loadAddon(clipboardAddon)
+terminal.attachCustomKeyEventHandler(
+  event =>
+    !(
+      event.type === 'keydown' &&
+      event.key === 'c' &&
+      event.ctrlKey &&
+      event.metaKey
+    ),
+)
+
+const ligaturesAddon = new LigaturesAddon()
+terminal.loadAddon(ligaturesAddon)
+
+const webLinksAddon = new WebLinksAddon()
+terminal.loadAddon(webLinksAddon)
+
 const fitTerminal = () => fitAddon.fit() ?? void 0
 setTimeout(fitTerminal, 100)
 window.addEventListener('resize', _ => setTimeout(fitTerminal, 50))
@@ -62,11 +86,21 @@ let [historyIndex, isExecuting] = [-1, false]
 
 const PROMPT = '\x1b[32m$\x1b[0m '
 
-const prompt = () => [
-  terminal.write(`\r\n${PROMPT}`),
-  (currentLine = ''),
-  (cursorPosition = 0),
-]
+/**
+ * @param {{ leadingNewline?: boolean }} [options]
+ */
+function prompt(options = {}) {
+  const { leadingNewline = true } = options
+  currentLine = ''
+  cursorPosition = 0
+  if (leadingNewline) terminal.write('\r\n')
+  renderCurrentInput()
+}
+
+function clearTerminal() {
+  terminal.write('\x1b[H\x1b[2J')
+  prompt({ leadingNewline: false })
+}
 
 const sessionId =
   localStorage.getItem('sessionId') ||
@@ -210,9 +244,8 @@ async function executeCommand(command) {
   isExecuting = true
 
   if (command.trim() === 'clear') {
-    terminal.clear()
+    clearTerminal()
     isExecuting = false
-    prompt()
     return
   }
   try {
@@ -271,8 +304,7 @@ terminal.onData(data => {
     return
   }
   if (code === 12) {
-    terminal.clear()
-    prompt()
+    clearTerminal()
     return
   }
   if (data === '\x1b[A') {
