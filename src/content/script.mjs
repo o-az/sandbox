@@ -370,9 +370,9 @@ async function initTerminal() {
   updateStatus('Initializing...', false)
   try {
     const response = await fetch('/api/ping')
-    /** @type {{ pong: boolean }} */
-    const data = await response.json()
-    if (!data.pong) throw new Error('Connection failed')
+    /** @type {string} */
+    const data = await response.text()
+    if (data !== 'ok') throw new Error('Connection failed')
     hideLoading()
     updateStatus('Connected', true)
     prompt()
