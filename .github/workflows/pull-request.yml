@@ -1,4 +1,4 @@
-name: '🔧 Checks'
+name: '🐮 Pull Request'
 
 on:
   workflow_dispatch:
@@ -18,10 +18,14 @@ env:
   ACTIONS_RUNNER_DEBUG: true
 
 jobs:
-  checks:
-    name: 'Checks'
+  pull-request:
+    name: 'Pull Request'
     timeout-minutes: 4
     runs-on: ['ubuntu-latest']
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     steps:
       - name: '🔑 Checkout'
         uses: actions/checkout@v5
