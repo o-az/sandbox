@@ -1,0 +1,105 @@
+name: '🐮 Pull Request'
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ACTIONS_RUNNER_DEBUG: true
+
+jobs:
+  pull-request:
+    name: 'Checks & Preview Deploy'
+    timeout-minutes: 4
+    runs-on: ['ubuntu-latest']
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: '🔑 Checkout'
+        uses: actions/checkout@v5
+
+      - name: '🐰 Setup Bun'
+        uses: oven-sh/setup-bun@main
+        with:
+          bun-version: 'latest'
+
+      - name: 'Install Dependencies'
+        run: bun install --frozen-lockfile
+
+      - name: 'Lint, Format & Typecheck'
+        run: |
+          bun x @biomejs/biome check .
+          bun tsc --project tsconfig.json --noEmit
+
+      - name: Deploy Preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          touch /tmp/deployment.txt
+
+          bun run build
+          bun x wrangler@latest versions upload >> /tmp/deployment.txt
+
+      - name: Job Summary
+        run: |
+          echo "🌆 Deployed to Cloudflare Workers 🥕" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/deployment.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        uses: actions/github-script@v8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const NodeFS = require('node:fs')
+
+            const deploymentLogs = NodeFS.readFileSync('/tmp/deployment.txt', 'utf8')
+            const lines = deploymentLogs.split('\n')
+            const start = lines.findIndex(line => line.includes('Version Preview URL: '))
+            const deploymentUrl = lines.splice(start, lines.length).at(0)?.split(' ').at(-1)
+
+            const commentMarker = '<!-- PREVIEW_DEPLOYMENT -->'
+
+            const commentBody = `
+              ${commentMarker}
+              <h2>Preview Deployment 🌆</h2>
+              <br />
+              <a href="${deploymentUrl}" target="_blank" rel="noopener noreferrer">${deploymentUrl}</a>
+            `
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            })
+            const existingComment = comments.find((comment) => comment.body.includes(commentMarker))
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              })
+            }
+
