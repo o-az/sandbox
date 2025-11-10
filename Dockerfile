@@ -1,8 +1,13 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/cloudflare/sandbox:0.4.16
+FROM docker.io/cloudflare/sandbox:0.4.17
 
 ENV FOUNDRY_DISABLE_NIGHTLY_WARNING=1
 ENV NODE_OPTIONS="npm_config_yes=true"
+
+# Install a lightweight vi implementation for interactive debugging inside the sandbox
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends vim-tiny \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN npm install --global \
   @foundry-rs/cast@nightly \
