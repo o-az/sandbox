@@ -113,7 +113,9 @@ async function handleExec(
       { status: 500 },
     )
   } finally {
-    await sandbox?.destroy()
+    /**
+     * TODO: Properly destroy / cleanup sandbox instance
+     */
   }
 }
 
