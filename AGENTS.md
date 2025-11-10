@@ -2,9 +2,9 @@
 
 ## Project Structure & Module Organization
 
-- `src/index.ts` – Worker entry point; routes HTTP requests, proxies `/api/ws` upgrades, and manages sandbox sessions.
+- `src/index.ts` – Worker entry point; routes HTTP requests, proxies preview port exposures, and manages `/api/exec` streaming + sandbox sessions.
 - `src/content/` – Static assets served to the browser (terminal UI, fonts, styling, TS/JS front-end logic).
-- `scripts/` – Runtime helpers executed inside the Cloudflare sandbox container (`websocket-server.ts` streams via `script(1)`; `startup.sh` exports `WS_PORT` and boots the control plane).
+- `scripts/` – Runtime helpers executed inside the Cloudflare sandbox container (`websocket-server.ts` hosts the PTY bridge; `startup.sh` exports `WS_PORT` and boots both the PTY and control plane).
 - `Dockerfile` – Defines the sandbox container image, installed tooling (Foundry nightly), and startup sequence.
 - `wrangler.json`, `worker-configuration.d.ts` – Cloudflare Worker configuration and typed bindings.
 
@@ -31,13 +31,13 @@
 
 - TypeScript/JavaScript use 2-space indentation and Biome defaults (`biome.json` governs lint + format rules).
 - Prefer descriptive camelCase for variables/functions (`sessionLabel`), PascalCase for exported types or classes (`Sandbox`), and kebab-case for file names except TypeScript modules.
-- Keep Worker handler functions pure and dependency-light; shared utilities belong in `scripts/` or future `src/lib/` modules.
+- Keep Worker handler functions pure and dependency-light; shared utilities belong in future `src/lib/` modules shared between Worker and client code.
 - Run `bun check` before committing; unresolved lint errors block CI.
 
 ## Testing Guidelines
 
 - No automated test suite exists yet. When adding features, include minimal reproduction scripts or fixture commands (e.g., sample `chisel` session transcript).
-- For browser-side changes, verify terminal flows by running `wrangler dev` and exercising `/api/ws` interactive sessions (open DevTools console to watch reconnection logs).
+- For browser-side changes, verify terminal flows by running `wrangler dev` and exercising `/api/exec` command submissions (refresh to ensure session persistence, open DevTools to watch SSE logs).
 - If you add test tooling, document invocation commands in this file and ensure they run via Bun.
 
 ## Commit & Pull Request Guidelines
@@ -50,5 +50,5 @@
 
 - Never commit secrets; Worker bindings and Foundry auth live outside the repo (`.dev.vars`, Cloudflare dashboards).
 - Keep `Dockerfile` base image aligned with the SDK version specified in `package.json` to avoid runtime mismatches.
-- The shell bridge always listens on `WS_PORT` (default 8080). Only change it if you also rebuild the Docker image to expose that port and update `.dev.vars`.
-- Exposed ports should remain limited to the WebSocket command channel. Validate port usage via `scripts/websocket-server.ts`.
+- Interactive PTY traffic now rides over the Bun WebSocket bridge on `WS_PORT`; expose only 8080/6969 unless you intentionally proxy extra sandbox services (e.g., custom HTTP ports).
+- If you expose additional sandbox ports (anvil RPC, etc.), document the route in `AGENTS.md` and ensure `wrangler dev` preview URLs stay rate limited.
