@@ -100,6 +100,11 @@ const sessionId =
   `session-${Math.random().toString(36).slice(2, 9)}`
 localStorage.setItem('sessionId', sessionId)
 
+// Parse URL parameters for iframe embedding
+const urlParams = new URLSearchParams(window.location.search)
+const prefilledCommand = urlParams.get('cmd')
+const embedMode = urlParams.get('embed') === 'true'
+
 /**
  * @type {WebSocket | undefined}
  */
@@ -117,10 +122,20 @@ let interactiveReject
 let currentStatus = 'offline'
 let commandInProgress = false
 let awaitingInput = false
+let hasPrefilledCommand = false
 
-echoBanner()
+// Only show banner if no pre-filled command
+if (!prefilledCommand) {
+  echoBanner()
+}
 terminal.focus()
 setStatus(navigator.onLine ? 'online' : 'offline')
+
+// Apply embed mode styling if enabled or if there's a pre-filled command
+if (embedMode || prefilledCommand) {
+  const footer = document.querySelector('footer#footer')
+  if (footer) footer.style.display = 'none'
+}
 window.addEventListener('online', () => {
   if (!interactiveMode) setStatus('online')
 })
@@ -155,6 +170,7 @@ startInputLoop()
 function startInputLoop() {
   if (interactiveMode || awaitingInput) return
   awaitingInput = true
+
   readline
     .read(PROMPT)
     .then(async rawCommand => {
@@ -169,6 +185,20 @@ function startInputLoop() {
       setStatus('error')
       startInputLoop()
     })
+
+  // Pre-fill command if available and not yet used
+  if (!hasPrefilledCommand && prefilledCommand) {
+    hasPrefilledCommand = true
+    // Use paste to insert the pre-filled command into readline
+    setTimeout(() => {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.setData('text/plain', prefilledCommand)
+      const pasteEvent = new ClipboardEvent('paste', {
+        clipboardData: dataTransfer,
+      })
+      terminal.textarea?.dispatchEvent(pasteEvent)
+    }, 50)
+  }
 }
 
 /** @param {string} rawCommand */

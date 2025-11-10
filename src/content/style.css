@@ -51,40 +51,24 @@ body {
   text-decoration: none;
   font-size: 12px;
   font-weight: 600;
-  margin-top: 12px;
+  margin-bottom: 8px;
   margin-left: 12px;
   &:hover {
     color: #ffffff;
   }
 }
 
-#terminal-touch-menu {
-  position: fixed;
+#loading {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  margin: 0 12px 8px 0;
+  color: #c9d1d990;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Hide footer in embed mode */
+#footer[data-embed="true"] {
   display: none;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  background: rgba(13, 17, 23, 0.95);
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  z-index: 50;
-  box-shadow: 0 12px 24px rgba(140, 149, 159, 0.25);
-  backdrop-filter: blur(6px);
-}
-
-#terminal-touch-menu > button {
-  background: #238636;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
-#terminal-touch-menu > button:active,
-#terminal-touch-menu > button:focus {
-  outline: none;
-  opacity: 0.85;
 }
