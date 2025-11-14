@@ -31,6 +31,7 @@ const STATUS_STYLE = {
 
 const terminal = new Terminal({
   fontSize: 17,
+  lineHeight: 1.2,
   scrollback: 5000,
   convertEol: true,
   cursorBlink: true,
@@ -42,8 +43,7 @@ const terminal = new Terminal({
   ignoreBracketedPasteMode: true,
   cursorInactiveStyle: 'underline',
   drawBoldTextInBrightColors: true,
-  fontFamily:
-    "'Lilex', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+  fontFamily: "'Lilex', monospace",
   theme: {
     background: '#0d1117',
     foreground: '#c9d1d9',
@@ -77,23 +77,21 @@ const unicode11Addon = new Unicode11Addon()
 const serializeAddon = new SerializeAddon()
 const searchAddon = new SearchAddon({ highlightLimit: 50 })
 const imageAddon = new ImageAddon({ showPlaceholder: true })
-const clipboardAddon = new ClipboardAddon({
-  readText: () => navigator.clipboard.readText(),
-  writeText: text => navigator.clipboard.writeText(text),
-})
+const clipboardAddon = new ClipboardAddon()
 const ligaturesAddon = new LigaturesAddon()
 const webLinksAddon = new WebLinksAddon((event, url) => {
   event.preventDefault()
   window.open(url, '_blank', 'noopener,noreferrer')
 })
 const readline = new Readline()
+webglAddon.onContextLoss(() => webglAddon.dispose())
+terminal.loadAddon(webglAddon)
 
 const terminalElement = document.querySelector('div#terminal')
 if (!terminalElement) throw new Error('Terminal element not found')
 
 terminal.open(terminalElement)
 // Attach terminal instance to DOM element for context-like access
-
 // @ts-expect-error - xterm property is not typed
 terminalElement.xterm = terminal
 
@@ -106,7 +104,6 @@ export function getTerminal() {
 }
 
 terminal.loadAddon(fitAddon)
-terminal.loadAddon(webglAddon)
 terminal.loadAddon(searchAddon)
 terminal.loadAddon(clipboardAddon)
 terminal.loadAddon(unicode11Addon)
@@ -157,11 +154,7 @@ let currentStatus = 'offline'
 let commandInProgress = false
 let awaitingInput = false
 let hasPrefilledCommand = false
-
-// Only show banner if no pre-filled command
-if (!prefilledCommand) {
-  echoBanner()
-}
+terminal.writeln('\n')
 terminal.focus()
 setStatus(navigator.onLine ? 'online' : 'offline')
 
@@ -258,9 +251,7 @@ function startInputLoop() {
       terminal.textarea?.dispatchEvent(pasteEvent)
 
       // Disable stdin if in embed mode (wait for button click to execute)
-      if (embedMode && !autoRun) {
-        terminal.options.disableStdin = true
-      }
+      if (embedMode && !autoRun) terminal.options.disableStdin = true
 
       // If autorun is enabled, simulate Enter key press
       if (autoRun) {
@@ -324,13 +315,14 @@ function runCommand(command) {
 /** @param {Command} command */
 function isLocalCommand(command) {
   const cmd = command.trim().toLowerCase()
-  return cmd === 'clear' || cmd === 'reset'
+  return cmd === 'clear' //|| cmd === 'reset'
 }
 
 /** @param {Command} command */
 function executeLocalCommand(command) {
   const cmd = command.trim().toLowerCase()
-  if (cmd === 'clear' || cmd === 'reset') {
+  if (cmd === 'clear') {
+    //|| cmd === 'reset') {
     terminal.clear()
     setStatus('online')
   }
@@ -346,6 +338,19 @@ async function runSimpleCommand(command) {
 
   const payload = await parseJsonResponse(response)
   renderExecResult(payload)
+}
+
+function resetSandbox() {
+  fetch('/api/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) [terminal.clear(), setStatus('online')]
+      else [displayError(data.message), setStatus('error')]
+    })
 }
 
 /** @param {Command} command */
@@ -412,12 +417,16 @@ function handleStreamEvent(event) {
   if (!type) return
 
   if (type === 'stdout' && typeof event.data === 'string') {
-    terminal.write(event.data)
+    terminal.write(event.data, () => {
+      console.info(serializeAddon.serialize())
+    })
     return
   }
 
   if (type === 'stderr' && typeof event.data === 'string') {
-    terminal.write(`\u001b[31m${event.data}\u001b[0m`)
+    terminal.write(`\u001b[31m${event.data}\u001b[0m`, () => {
+      console.info(serializeAddon.serialize())
+    })
     return
   }
 
@@ -431,9 +440,7 @@ function handleStreamEvent(event) {
 
   if (type === 'complete') {
     const code = typeof event.exitCode === 'number' ? event.exitCode : 'unknown'
-    if (code !== 0) {
-      terminal.writeln(`\r\n[process exited with code ${code}]`)
-    }
+    if (code !== 0) terminal.writeln(`\r\n[process exited with code ${code}]`)
     return
   }
 
@@ -456,13 +463,13 @@ async function parseJsonResponse(response) {
 /** @param {any} result */
 function renderExecResult(result) {
   if (result.stdout) {
-    terminal.write(result.stdout)
+    terminal.write(result.stdout, () => {
+      console.info(serializeAddon.serialize())
+    })
     if (!result.stdout.endsWith('\n')) terminal.write('\r\n')
   }
-  if (result.stderr) {
-    terminal.write(`\u001b[31m${result.stderr}\u001b[0m`)
-    if (!result.stderr.endsWith('\n')) terminal.write('\r\n')
-  }
+  if (result.stderr) displayError(result.stderr)
+
   if (!result.success) {
     const message = result.error || 'Command failed'
     displayError(message)
@@ -536,20 +543,28 @@ function handleInteractiveMessage(event) {
         return
       }
     } catch {
-      terminal.write(data)
+      terminal.write(data, () => {
+        console.info(serializeAddon.serialize())
+      })
     }
     return
   }
 
   if (data instanceof ArrayBuffer) {
     const text = textDecoder.decode(new Uint8Array(data))
-    if (text) terminal.write(text)
+    if (text)
+      terminal.write(text, () => {
+        console.info(serializeAddon.serialize())
+      })
     return
   }
 
   if (data instanceof Uint8Array) {
     const text = textDecoder.decode(data)
-    if (text) terminal.write(text)
+    if (text)
+      terminal.write(text, () => {
+        console.info(serializeAddon.serialize())
+      })
   }
 }
 
@@ -654,7 +669,9 @@ function websocketUrl() {
 
 /** @param {string} message */
 function displayError(message) {
-  terminal.writeln(`\u001b[31m${message}\u001b[0m`)
+  terminal.writeln(`\u001b[31m${message}\u001b[0m`, () => {
+    console.info(serializeAddon.serialize())
+  })
 }
 
 /** @param {keyof typeof STATUS_STYLE} mode */
@@ -677,10 +694,6 @@ function setStatus(mode) {
   statusText.style.color = style.color
   statusText.style.position = 'absolute'
   statusText.style.letterSpacing = '0.05em'
-}
-
-function echoBanner() {
-  terminal.writeln('Welcome to the Foundry sandbox shell.')
 }
 
 window.addEventListener('resize', () => {

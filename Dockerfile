@@ -1,13 +1,12 @@
 # syntax=docker/dockerfile:1
 FROM docker.io/cloudflare/sandbox:0.4.18
 
-ENV TERM=xterm-256color
+ENV TERM="xterm-256color"
 ENV FOUNDRY_DISABLE_NIGHTLY_WARNING=1
 ENV NODE_OPTIONS="npm_config_yes=true"
 
-# Install a lightweight vi implementation for interactive debugging inside the sandbox
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends vim-tiny \
+RUN apt-get update --yes \
+  && apt-get install --yes --no-install-recommends vim-tiny \
   && rm -rf /var/lib/apt/lists/*
 
 RUN npm install --global \
@@ -22,5 +21,4 @@ RUN chmod +x startup.sh
 
 ENV WS_PORT=8080
 
-# Expose the primary shell port (8080) and the legacy 6969 fallback for local dev
 EXPOSE ${WS_PORT} 6969

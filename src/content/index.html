@@ -6,29 +6,31 @@
     <title>fndry</title>
     <meta name="description" content="⌛ 📦" >
     <meta name="keywords" content="foundry, web, shell" >
-    <link rel="preload" href="./Lilex.ttf" as="font" type="font/ttf" crossorigin="anonymous" >
-    <link rel="stylesheet" href="https://esm.sh/@xterm/xterm/css/xterm.css" >
     <link rel="stylesheet" href="./keys.css" >
     <link rel="stylesheet" href="./style.css" >
+    <link rel="stylesheet" href="https://esm.sh/@xterm/xterm/css/xterm.css" >
+    <link rel="preload" href="./fonts/Lilex.woff2" as="font" type="font/woff2" crossorigin >
+    <link rel="preload" href="./fonts/Lilex-Italic.woff2" as="font" type="font/woff2" crossorigin >
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐚</text></svg>" >
     <script type="importmap">
       {
         "imports": {
-          "@xterm/xterm": "https://esm.sh/@xterm/xterm",
-          "xterm-readline": "https://esm.sh/xterm-readline",
-          "@xterm/addon-fit": "https://esm.sh/@xterm/addon-fit",
-          "@xterm/addon-image": "https://esm.sh/@xterm/addon-image",
-          "@xterm/addon-webgl": "https://esm.sh/@xterm/addon-webgl",
-          "@xterm/addon-search": "https://esm.sh/@xterm/addon-search",
-          "@xterm/addon-serialize": "https://esm.sh/@xterm/addon-serialize",
-          "@xterm/addon-unicode11": "https://esm.sh/@xterm/addon-unicode11",
-          "@xterm/addon-web-links": "https://esm.sh/@xterm/addon-web-links",
-          "@xterm/addon-clipboard": "https://esm.sh/@xterm/addon-clipboard",
-          "@xterm/addon-ligatures": "https://esm.sh/@xterm/addon-ligatures",
           "es-toolkit": "https://esm.sh/es-toolkit",
-          "ua-parser-js": "https://esm.sh/ua-parser-js"
+          "ua-parser-js": "https://esm.sh/ua-parser-js",
+          "xterm-readline": "https://esm.sh/xterm-readline",
+          "@xterm/xterm": "https://esm.sh/@xterm/xterm@beta",
+          "@xterm/addon-fit": "https://esm.sh/@xterm/addon-fit@beta",
+          "@xterm/addon-image": "https://esm.sh/@xterm/addon-image@beta",
+          "@xterm/addon-webgl": "https://esm.sh/@xterm/addon-webgl@beta",
+          "@xterm/addon-attach": "https://esm.sh/@xterm/addon-attach@beta",
+          "@xterm/addon-search": "https://esm.sh/@xterm/addon-search@beta",
+          "@xterm/addon-serialize": "https://esm.sh/@xterm/addon-serialize@beta",
+          "@xterm/addon-unicode11": "https://esm.sh/@xterm/addon-unicode11@beta",
+          "@xterm/addon-web-links": "https://esm.sh/@xterm/addon-web-links@beta",
+          "@xterm/addon-clipboard": "https://esm.sh/@xterm/addon-clipboard@beta",
+          "@xterm/addon-ligatures": "https://esm.sh/@xterm/addon-ligatures@beta"
         }
       }
     </script>
@@ -58,6 +60,12 @@
 
     <script type="module" src="./script.mjs">
       if (!HTMLScriptElement.supports('importmap')) throw new Error('Importmap is not supported')
+    </script>
+
+    <script type="module">
+      import { extraKeyboardKeys } from './extra-keys.mjs'
+      const footer = document.querySelector('footer#footer')
+      extraKeyboardKeys(footer)
     </script>
 
     <script type="module">

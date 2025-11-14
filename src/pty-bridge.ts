@@ -1,27 +1,25 @@
 import { randomUUID } from 'node:crypto'
 import type { ServerWebSocket } from 'bun'
 
+/**
+ * WebSocket-based PTY bridge
+ * Used only for interactive commands (REPLs, chisel, node, etc.)
+ */
+
 const [DEFAULT_COLS, DEFAULT_ROWS] = [120, 32]
 const DEFAULT_SHELL = 'bash --noprofile --norc -i'
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-type WritableSink =
-  | {
-      write?: (chunk: Uint8Array) => any
-      end?: () => any
-    }
-  | undefined
-
 type ShellSession = {
   id: string
   cols: number
   rows: number
-  stdin: WritableSink
+  close: () => void
   suppressions: Array<Suppression>
   process: ReturnType<typeof Bun.spawn>
-  close: () => void
+  stdin: { end?: () => unknown; write?: (chunk: Uint8Array) => unknown }
 }
 
 type SessionState =
@@ -149,16 +147,19 @@ const server = Bun.serve<SessionState>({
   },
 })
 
-function queueSuppression(suppressions: Suppression[], text: string): void {
+function queueSuppression(
+  suppressions: Array<Suppression>,
+  text: string,
+): void {
   suppressions.push({ bytes: encoder.encode(text), index: 0 })
 }
 
 function stripSuppressed(
-  suppressions: Suppression[],
+  suppressions: Array<Suppression>,
   data: Uint8Array,
 ): Uint8Array {
   if (!suppressions.length || !data.length) return data
-  const output: number[] = []
+  const output: Array<number> = []
   let idx = 0
 
   while (idx < data.length) {
@@ -168,7 +169,7 @@ function stripSuppressed(
       continue
     }
 
-    const current = suppressions[0]
+    const [current] = suppressions
     if (data[idx] === current.bytes[current.index]) {
       current.index++
       idx++
@@ -201,7 +202,7 @@ function removeResizeEcho(data: Uint8Array): Uint8Array {
   if (!cleaned.includes('bash-')) return encoder.encode(cleaned)
   const lines = cleaned.split(/\r?\n/)
   const promptPattern = /^bash-[^#]+#\s*$/
-  const filtered: string[] = []
+  const filtered: Array<string> = []
   for (const line of lines) {
     const trimmed = line.trim()
     if (trimmed.length === 0) {

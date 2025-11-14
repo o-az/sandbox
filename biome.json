@@ -57,6 +57,7 @@
       "complexity": {
         "noBannedTypes": "off",
         "noStaticOnlyClass": "off",
+        "noImportantStyles": "off",
         "noUselessConstructor": "off"
       },
       "performance": {

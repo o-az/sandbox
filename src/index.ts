@@ -35,8 +35,11 @@ app.post('/api/exec', async context => {
   return context.json(result)
 })
 
-app.post('/api/reset', async context => {
-  const { sessionId } = await context.req.json<{ sessionId: string }>()
+app.on(['GET', 'POST'], '/api/reset', async context => {
+  const { sessionId } =
+    context.req.method === 'GET'
+      ? context.req.query()
+      : await context.req.json<{ sessionId: string }>()
 
   const sandbox = getSandbox(
     context.env.Sandbox,

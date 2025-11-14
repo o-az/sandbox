@@ -1,6 +1,16 @@
 @font-face {
   font-family: "Lilex";
-  src: url("./Lilex.ttf") format("truetype");
+  src: url("./fonts/Lilex.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lilex";
+  src: url("./fonts/Lilex-Italic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
   font-display: swap;
 }
 
@@ -8,9 +18,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family:
-    "Lilex", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
-    "Courier New", monospace;
+  font-family: "Lilex", monospace;
 }
 
 html,
@@ -23,6 +31,7 @@ body {
   display: flex;
   background: #0d1117;
   flex-direction: column;
+  font-family: "Lilex", monospace;
 }
 
 #terminal-wrapper {
@@ -59,7 +68,6 @@ body {
   text-decoration: none;
   font-size: 12px;
   font-weight: 600;
-  margin-bottom: 8px;
   margin-left: 12px;
   &:hover {
     color: #ffffff;
@@ -74,4 +82,9 @@ body {
   color: #c9d1d990;
   font-size: 12px;
   font-weight: 400;
+}
+
+div.slider {
+  max-width: 0 !important;
+  background: transparent !important;
 }
