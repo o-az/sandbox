@@ -1,10 +1,11 @@
 import {
+  tabId,
   autoRun,
   sessionId,
-  tabId,
   embedMode,
   prefilledCommand,
   INTERACTIVE_COMMANDS,
+  clearStoredSessionState,
 } from './state/session.mjs'
 import { startSandboxWarmup } from './state/warmup.mjs'
 import { StatusIndicator } from './terminal/status.mjs'
@@ -14,11 +15,13 @@ import { createVirtualKeyboardBridge } from './input/virtual.mjs'
 import { createInteractiveSession } from './interactive/session.mjs'
 
 const PROMPT = ' \u001b[32m$\u001b[0m '
-const LOCAL_COMMANDS = new Set(['clear'])
+const LOCAL_COMMANDS = new Set(['clear', 'reset'])
 
 let awaitingInput = false
 let commandInProgress = false
 let hasPrefilledCommand = false
+let recoveringSession = false
+let sessionBroken = false
 
 /** @type {(event: KeyboardEvent) => boolean} */
 let altNavigationDelegate = () => false
@@ -39,7 +42,7 @@ const serializeAddon = terminalManager.serializeAddon
 const statusText = document.querySelector('p#status-text')
 const statusIndicator = new StatusIndicator(statusText)
 
-terminal.writeln('\n')
+terminal.writeln('\r')
 terminal.focus()
 statusIndicator.setStatus(navigator.onLine ? 'online' : 'offline')
 
@@ -104,9 +107,7 @@ window.addEventListener('message', event => {
     })
     terminal.textarea?.dispatchEvent(enterEvent)
     setTimeout(() => {
-      if (embedMode) {
-        terminal.options.disableStdin = true
-      }
+      if (embedMode) terminal.options.disableStdin = true
     }, 200)
   }
 })
@@ -242,6 +243,15 @@ async function processCommand(rawCommand) {
     return
   }
 
+  const normalized = trimmed.toLowerCase()
+  if (sessionBroken && normalized !== 'reset') {
+    statusIndicator.setStatus('error')
+    displayError(
+      'Sandbox shell is unavailable. Type `reset` or refresh the page to start a new session.',
+    )
+    return
+  }
+
   if (isLocalCommand(trimmed)) {
     executeLocalCommand(trimmed)
     return
@@ -261,6 +271,10 @@ async function processCommand(rawCommand) {
     if (!isInteractiveMode()) statusIndicator.setStatus('online')
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    if (isFatalSandboxError(message)) {
+      handleFatalSandboxError(message)
+      return
+    }
     statusIndicator.setStatus('error')
     displayError(message)
   } finally {
@@ -281,10 +295,14 @@ function isLocalCommand(command) {
  * @returns {void}
  */
 function executeLocalCommand(command) {
-  if (command.trim().toLowerCase() === 'clear') {
+  const normalized = command.trim().toLowerCase()
+  if (normalized === 'clear') {
     terminal.clear()
     statusIndicator.setStatus('online')
+    return
   }
+
+  if (normalized === 'reset') resetSandboxSession()
 }
 
 /**
@@ -294,6 +312,55 @@ function displayError(message) {
   terminal.writeln(`\u001b[31m${message}\u001b[0m`, () => {
     console.info(serializeAddon.serialize())
   })
+}
+
+/**
+ * @param {string} message
+ * @returns {boolean}
+ */
+function isFatalSandboxError(message) {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('shell has died') ||
+    normalized.includes('session is dead') ||
+    normalized.includes('shell terminated unexpectedly') ||
+    normalized.includes('not ready or shell has died')
+  )
+}
+
+/**
+ * @param {string} message
+ * @returns {void}
+ */
+function handleFatalSandboxError(message) {
+  sessionBroken = true
+  statusIndicator.setStatus('error')
+  displayError(
+    `${message}\nType \`reset\` or refresh the page to create a new sandbox session.`,
+  )
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+async function resetSandboxSession() {
+  if (recoveringSession) return
+  recoveringSession = true
+  statusIndicator.setStatus('error')
+  terminal.writeln('\nResetting sandbox session...')
+
+  try {
+    await fetch('/api/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, tabId }),
+    })
+  } catch (error) {
+    console.error('Failed to reset sandbox session', error)
+  }
+
+  clearStoredSessionState()
+  setTimeout(() => window.location.reload(), 500)
 }
 
 export { terminal, sendVirtualKeyboardInput }

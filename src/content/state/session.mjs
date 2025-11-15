@@ -27,6 +27,12 @@ const autoRun = params.get('autorun') === 'true'
 
 const LOG_LEVEL = params.get('log') === 'debug' ? 'debug' : 'info'
 
+function clearStoredSessionState() {
+  localStorage.removeItem('sessionId')
+  sessionStorage.removeItem('tabId')
+  sessionStorage.removeItem('sessionActive')
+}
+
 export {
   LOG_LEVEL,
   API_ENDPOINT,
@@ -39,4 +45,5 @@ export {
   prefilledCommand,
   embedMode,
   autoRun,
+  clearStoredSessionState,
 }
