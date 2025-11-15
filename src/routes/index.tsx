@@ -1,35 +1,35 @@
-import { createSignal, onCleanup, onMount } from 'solid-js'
 import { createFileRoute } from '@tanstack/solid-router'
+import { createSignal, onCleanup, onMount } from 'solid-js'
 
 import {
-  clearStoredSessionState,
-  consumeRefreshIntent,
-  ensureClientSession,
-  INTERACTIVE_COMMANDS,
-  STREAMING_COMMANDS,
-  markRefreshIntent,
-} from '#lib/client-session.ts'
-import { createCommandRunner } from '#lib/command-runner.ts'
-import { createInteractiveSession } from '#lib/interactive-session.ts'
-import { initKeyboardInsets } from '#lib/keyboard-insets.ts'
-import { extraKeyboardKeys } from '#lib/extra-keys.ts'
-import {
-  StatusIndicator,
   STATUS_STYLE,
   type StatusMode,
+  StatusIndicator,
 } from '#lib/status-indicator.ts'
-import { TerminalManager } from '#lib/terminal-manager.ts'
-import { createVirtualKeyboardBridge } from '#lib/virtual-keyboard.ts'
+import {
+  markRefreshIntent,
+  STREAMING_COMMANDS,
+  ensureClientSession,
+  INTERACTIVE_COMMANDS,
+  consumeRefreshIntent,
+  clearStoredSessionState,
+} from '#lib/client-session.ts'
 import { startSandboxWarmup } from '#lib/warmup.ts'
+import { extraKeyboardKeys } from '#lib/extra-keys.ts'
+import { TerminalManager } from '#lib/terminal-manager.ts'
+import { initKeyboardInsets } from '#lib/keyboard-insets.ts'
+import { createCommandRunner } from '#lib/command-runner.ts'
+import { createVirtualKeyboardBridge } from '#lib/virtual-keyboard.ts'
+import { createInteractiveSession } from '#lib/interactive-session.ts'
 
 const PROMPT = ' \u001b[32m$\u001b[0m '
 const LOCAL_COMMANDS = new Set(['clear', 'reset'])
 
 export const Route = createFileRoute('/')({
-  component: TerminalPage,
+  component: Page,
 })
 
-export default function TerminalPage() {
+function Page() {
   const [statusMode, setStatusMode] = createSignal<StatusMode>('offline')
   const [sessionLabel, setSessionLabel] = createSignal('')
   const [statusMessage, setStatusMessage] = createSignal('Ready')
@@ -410,9 +410,17 @@ export default function TerminalPage() {
 
   return (
     <main id="terminal-wrapper">
+      <header>
+        <p
+          class="top-0 right-0 m-2 absolute text-sm"
+          style={{ color: STATUS_STYLE[statusMode()].color }}>
+          {STATUS_STYLE[statusMode()].text} · {statusMessage()}
+        </p>
+      </header>
       <div id="terminal-container">
         <div
           id="terminal"
+          data-element="terminal"
           ref={element => {
             terminalRef = element
           }}
@@ -425,11 +433,6 @@ export default function TerminalPage() {
         }}
         class="px-4 py-3 text-xs uppercase tracking-wide text-slate-400 flex items-center justify-between gap-4">
         <span>Session {sessionLabel()}</span>
-        <p
-          class="font-semibold"
-          style={{ color: STATUS_STYLE[statusMode()].color }}>
-          {STATUS_STYLE[statusMode()].text} · {statusMessage()}
-        </p>
       </footer>
     </main>
   )

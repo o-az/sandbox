@@ -7,6 +7,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/solid-router'
 
 import appCss from '#style.css?url'
 import xtermCss from '@xterm/xterm/css/xterm.css?url'
+import { DefaultCatchBoundary } from '#components/default-catch-boundary.tsx'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -28,10 +29,11 @@ export const Route = createRootRoute({
         href: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐚</text></svg>',
       },
     ],
-    scripts: [],
   }),
-
   shellComponent: RootDocument,
+  errorComponent: DefaultCatchBoundary,
+  // TODO: better 404 page
+  notFoundComponent: () => <section>404</section>,
 })
 
 function RootDocument({ children }: { children: Solid.JSX.Element }) {

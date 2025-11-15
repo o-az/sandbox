@@ -42,6 +42,7 @@
 - TypeScript/JavaScript use 2-space indentation and Biome defaults (`biome.json` governs lint + format rules).
 - Prefer descriptive camelCase for variables/functions (`sessionLabel`), PascalCase for exported types or classes (`Sandbox`), and kebab-case for file names except TypeScript modules.
 - Keep Worker handler functions pure and dependency-light; shared utilities belong in future `src/lib/` modules shared between Worker and client code.
+- All `src/routes/api/*` handlers must validate and default their inputs with schemas from `zod/mini`; avoid bespoke parsing helpers or manual defaulting.
 - Run `bun check` before committing; unresolved lint errors block CI.
 - Keep TanStack route files colocated with their dependencies; prefer extracting cross-route logic into `src/lib/`.
 

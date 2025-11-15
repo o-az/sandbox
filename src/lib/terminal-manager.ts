@@ -86,14 +86,14 @@ export class TerminalManager {
   }
 
   init(
-    element: HTMLElement | null | undefined,
+    element: (HTMLDivElement & { xterm?: Terminal }) | null | undefined,
     { onAltNavigation }: TerminalInitOptions = {},
   ) {
     if (this.#initialized) return this.#terminal
     if (!element) throw new Error('Terminal element is required')
 
     this.#terminal.open(element)
-    ;(element as HTMLElement & { xterm?: Terminal }).xterm = this.#terminal
+    element.xterm = this.#terminal
 
     this.#terminal.loadAddon(this.#webglAddon)
     this.#terminal.loadAddon(this.#fitAddon)
@@ -108,9 +108,9 @@ export class TerminalManager {
     this.#terminal.loadAddon(this.#xtermReadline)
 
     this.#terminal.attachCustomKeyEventHandler(event => {
-      if (typeof onAltNavigation === 'function' && onAltNavigation(event)) {
+      if (typeof onAltNavigation === 'function' && onAltNavigation(event))
         return false
-      }
+
       if (
         event.type === 'keydown' &&
         event.key === 'c' &&

@@ -10,7 +10,6 @@
     ],
     "types": [
       "vite/client",
-      "@cloudflare/workers-types",
       "typed-query-selector/strict"
     ],
     "resolveJsonModule": true,

@@ -1,54 +1,51 @@
+import * as z from 'zod/mini'
 import { env } from 'cloudflare:workers'
 import { json } from '@tanstack/solid-start'
 import { getSandbox } from '@cloudflare/sandbox'
 import { createFileRoute } from '@tanstack/solid-router'
 
 import {
+  removeActiveTab,
+  getSandboxSession,
   clearSandboxSession,
   getOrCreateSandboxId,
-  getSandboxSession,
-  removeActiveTab,
 } from '#lib/sandbox-session.ts'
+
+const ResetPayloadSchema = z.object({
+  sessionId: z.string({ error: 'Missing sessionId' }),
+  tabId: z.optional(z.string()),
+})
+
+type ResetPayload = z.infer<typeof ResetPayloadSchema>
 
 export const Route = createFileRoute('/api/reset')({
   server: {
     handlers: {
-      POST: async ({ request }) => handleReset(await parseBody(request)),
-      GET: async ({ request }) => handleReset(parseQuery(request.url)),
+      POST: async ({ request }) => {
+        const body = await request.json()
+        const payload = ResetPayloadSchema.safeParse(body)
+
+        if (!payload.success)
+          return json({ error: payload.error.message }, { status: 400 })
+
+        return handleReset(payload.data)
+      },
+      GET: async ({ request }) => {
+        const url = new URL(request.url)
+        const payload = ResetPayloadSchema.safeParse(
+          Object.fromEntries(url.searchParams.entries()),
+        )
+
+        if (!payload.success)
+          return json({ error: payload.error.message }, { status: 400 })
+
+        return handleReset(payload.data)
+      },
     },
   },
 })
 
-type ResetPayload = {
-  sessionId?: string
-  tabId?: string
-}
-
-async function parseBody(request: Request): Promise<ResetPayload> {
-  try {
-    const body = (await request.json()) as ResetPayload
-    return body
-  } catch {
-    return {}
-  }
-}
-
-function parseQuery(url: string): ResetPayload {
-  const params = new URL(url).searchParams
-  return {
-    sessionId: params.get('sessionId') ?? undefined,
-    tabId: params.get('tabId') ?? undefined,
-  }
-}
-
-async function handleReset(payload: ResetPayload) {
-  const sessionId = payload.sessionId
-  const tabId = payload.tabId
-
-  if (!sessionId) {
-    return json({ success: false, error: 'Missing sessionId' }, { status: 400 })
-  }
-
+async function handleReset({ sessionId, tabId }: ResetPayload) {
   const existingSession = getSandboxSession(sessionId)
   if (!existingSession) {
     return json({ success: true, message: 'Session already destroyed' })
@@ -59,11 +56,13 @@ async function handleReset(payload: ResetPayload) {
 
   const remainingTabs = removeActiveTab(sessionId, tabId)
   if (remainingTabs > 0) {
-    return json({
-      success: true,
-      message: `Sandbox kept alive (${remainingTabs} tabs remaining)`,
-      activeTabs: remainingTabs,
-    })
+    return json(
+      {
+        message: `Sandbox kept alive (${remainingTabs} tabs remaining)`,
+        activeTabs: remainingTabs,
+      },
+      { status: 200 },
+    )
   }
 
   const sandbox = getSandbox(env.Sandbox, existingSession.sandboxId, {
@@ -73,15 +72,12 @@ async function handleReset(payload: ResetPayload) {
   try {
     await sandbox.destroy()
     clearSandboxSession(sessionId)
-    return json({
-      success: true,
-      message: 'Sandbox destroyed (last tab closed)',
-    })
+    return json(
+      { message: 'Sandbox destroyed (last tab closed)' },
+      { status: 200 },
+    )
   } catch (error) {
     console.error('Failed to destroy sandbox', error)
-    return json(
-      { success: false, message: 'Failed to destroy sandbox' },
-      { status: 500 },
-    )
+    return json({ message: 'Failed to destroy sandbox' }, { status: 500 })
   }
 }

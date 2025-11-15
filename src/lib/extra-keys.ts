@@ -1,5 +1,6 @@
-import { KeyboardHandler } from '#lib/keyboard-handler.ts'
 import type { Terminal } from '@xterm/xterm'
+
+import { KeyboardHandler } from '#lib/keyboard-handler.ts'
 
 export function extraKeyboardKeys(
   element: HTMLElement | null,
@@ -18,9 +19,7 @@ export function extraKeyboardKeys(
   },
 ) {
   if (!element || !enable) return
-  const embedMode =
-    typeof window !== 'undefined' &&
-    window.location.search.includes('embed=true')
+  const embedMode = window.location.search.includes('embed')
   if (embedMode) return
 
   const keyboardModifiers = new KeyboardHandler({ terminal, virtualInput })

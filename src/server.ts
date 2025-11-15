@@ -1,4 +1,7 @@
-import type { WorkerRequestContext } from '#types/request-context.ts'
+import type {
+  ExecutionContext,
+  DurableObjectNamespace,
+} from '@cloudflare/workers-types'
 import handler, { createServerEntry } from '@tanstack/solid-start/server-entry'
 
 export default createServerEntry({
@@ -8,7 +11,10 @@ export default createServerEntry({
 declare module '@tanstack/solid-start' {
   interface Register {
     server: {
-      requestContext?: WorkerRequestContext
+      requestContext?: {
+        executionContext: ExecutionContext
+        env: Cloudflare.Env & { Sandbox: DurableObjectNamespace }
+      }
     }
   }
 }

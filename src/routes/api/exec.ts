@@ -8,8 +8,6 @@ import { getOrCreateSandboxId } from '#lib/sandbox-session.ts'
 
 const DEFAULT_TIMEOUT_MS = 25_000
 
-const [MIN_TIMEOUT_MS, MAX_TIMEOUT_MS] = [1_000, 60_000]
-
 const ExecCommandRequestSchema = z.object({
   command: z.string(),
   sessionId: z.string({ error: 'Missing sessionId' }),
@@ -21,6 +19,7 @@ export const Route = createFileRoute('/api/exec')({
       POST: async ({ request }) => {
         const body = await request.json()
         const payload = ExecCommandRequestSchema.safeParse(body)
+
         if (!payload.success)
           return json({ error: payload.error.message }, { status: 400 })
 
@@ -31,7 +30,9 @@ export const Route = createFileRoute('/api/exec')({
           keepAlive: true,
         })
 
-        const result = await sandbox.exec(command, { timeout: clampTimeout() })
+        const result = await sandbox.exec(command, {
+          timeout: DEFAULT_TIMEOUT_MS,
+        })
         return json({ ...result, sandboxId }, { status: 200 })
       },
       OPTIONS: () =>
@@ -47,8 +48,3 @@ export const Route = createFileRoute('/api/exec')({
     },
   },
 })
-
-function clampTimeout(value?: number) {
-  if (!value || Number.isNaN(value)) return DEFAULT_TIMEOUT_MS
-  return Math.min(MAX_TIMEOUT_MS, Math.max(MIN_TIMEOUT_MS, value))
-}

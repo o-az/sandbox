@@ -1,5 +1,6 @@
 import type { Terminal } from '@xterm/xterm'
 import type { SerializeAddon } from '@xterm/addon-serialize'
+
 import type { StatusMode } from '#lib/status-indicator.ts'
 
 const textEncoder = new TextEncoder()

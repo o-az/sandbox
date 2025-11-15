@@ -10,9 +10,6 @@ export default defineConfig(config => {
   const env = loadEnv(config.mode, NodeProcess.cwd(), '')
 
   return {
-    server: {
-      port: Number(env.PORT || randomIntInclusive(3_100, 8_100)),
-    },
     plugins: [
       VitePluginTSConfigPaths({
         projects: ['./tsconfig.json'],
@@ -28,6 +25,12 @@ export default defineConfig(config => {
       }),
       VitePluginSolid({ ssr: true }),
     ],
+    server: {
+      port: Number(env.PORT || randomIntInclusive(3_100, 8_100)),
+    },
+    build: {
+      target: 'esnext',
+    },
   }
 })
 
