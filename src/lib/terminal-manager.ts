@@ -109,6 +109,29 @@ export class TerminalManager {
     this.#terminal.loadAddon(this.#xtermReadline)
 
     this.#terminal.attachCustomKeyEventHandler(event => {
+      console.info('custom key event', event)
+      // Ctrl + Left Arrow (beginning of line)
+      if (
+        event.ctrlKey &&
+        event.key === 'ArrowLeft' &&
+        event.type === 'keydown'
+      ) {
+        this.#terminal.write('\x01') // Ctrl+A (ASCII SOH)
+        return false // Prevent default xterm.js handling
+      }
+      // Ctrl + Right Arrow (end of line)
+      if (
+        event.ctrlKey &&
+        event.key === 'ArrowRight' &&
+        event.type === 'keydown'
+      ) {
+        this.#terminal.write('\x05') // Ctrl+E (ASCII ENQ)
+        return false // Prevent default xterm.js handling
+      }
+      return true // Allow other key events to be handled normally
+    })
+
+    this.#terminal.attachCustomKeyEventHandler(event => {
       if (typeof onAltNavigation === 'function' && onAltNavigation(event))
         return false
 

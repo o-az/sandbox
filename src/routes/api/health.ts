@@ -4,7 +4,7 @@ import { json } from '@tanstack/solid-start'
 import { getSandbox } from '@cloudflare/sandbox'
 import { createFileRoute } from '@tanstack/solid-router'
 
-import { makeObjectStorage } from '@solid-primitives/storage'
+import { ensureSandboxSession, getActiveTabCount } from '#lib/server-sandbox.ts'
 
 const HEALTH_TIMEOUT_MS = 5_000
 
@@ -45,52 +45,3 @@ export const Route = createFileRoute('/api/health')({
     },
   },
 })
-
-type SandboxRecord = {
-  sandboxId: string
-  activeTabs: string[]
-}
-
-type SandboxGlobal = typeof globalThis & {
-  __sandboxSessions?: Record<string, string>
-}
-
-const sandboxStorage = makeObjectStorage(
-  ((globalThis as SandboxGlobal).__sandboxSessions ??= {}),
-)
-
-function ensureSandboxSession(
-  sessionId: string,
-  tabId?: string,
-): SandboxRecord {
-  const record = readSandboxSession(sessionId) ?? {
-    sandboxId: sessionId,
-    activeTabs: [],
-  }
-
-  if (tabId && !record.activeTabs.includes(tabId)) {
-    record.activeTabs = [...record.activeTabs, tabId]
-  }
-
-  writeSandboxSession(sessionId, record)
-  return record
-}
-
-function getActiveTabCount(sessionId: string) {
-  return readSandboxSession(sessionId)?.activeTabs.length ?? 0
-}
-
-function readSandboxSession(sessionId: string): SandboxRecord | undefined {
-  const raw = sandboxStorage.getItem(sessionId)
-  if (!raw) return undefined
-  try {
-    return JSON.parse(raw) as SandboxRecord
-  } catch {
-    sandboxStorage.removeItem(sessionId)
-    return undefined
-  }
-}
-
-function writeSandboxSession(sessionId: string, record: SandboxRecord) {
-  sandboxStorage.setItem(sessionId, JSON.stringify(record))
-}

@@ -1,4 +1,5 @@
 import type { Terminal } from '@xterm/xterm'
+
 import type { StatusMode } from '#components/status.tsx'
 
 const textDecoder = new TextDecoder()

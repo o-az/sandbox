@@ -1,19 +1,20 @@
 /// <reference types="vite/client" />
 
-import * as Solid from 'solid-js'
-import { HydrationScript } from 'solid-js/web'
-import { TanStackRouterDevtools } from '@tanstack/solid-router-devtools'
 import {
-  HeadContent,
   Outlet,
   Scripts,
+  HeadContent,
   createRootRoute,
 } from '@tanstack/solid-router'
+import * as Solid from 'solid-js'
+import { HydrationScript } from 'solid-js/web'
 
 import appCss from '#style.css?url'
+
+import { DevTools } from '#components/dev-tools.tsx'
 import xtermCss from '@xterm/xterm/css/xterm.css?url'
-import { DefaultCatchBoundary } from '#components/default-catch-boundary.tsx'
 import { SessionProvider } from '#context/session.tsx'
+import { DefaultCatchBoundary } from '#components/default-catch-boundary.tsx'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -49,7 +50,6 @@ function AppShell() {
       <Solid.Suspense>
         <Outlet />
       </Solid.Suspense>
-      <TanStackRouterDevtools position="top-right" />
     </SessionProvider>
   )
 }
@@ -63,6 +63,7 @@ function RootDocument({ children }: { children: Solid.JSX.Element }) {
       <body class="flex h-full min-h-screen flex-col overflow-hidden bg-[#0d1117] font-[Lilex]">
         <HeadContent />
         {children}
+        <DevTools />
         <Scripts />
       </body>
     </html>

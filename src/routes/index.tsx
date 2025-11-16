@@ -1,17 +1,18 @@
+import { debounce } from '@solid-primitives/scheduled'
 import { createFileRoute } from '@tanstack/solid-router'
 import { createSignal, onCleanup, onMount } from 'solid-js'
 
-import { Status, type StatusMode } from '#components/status.tsx'
 import {
-  INTERACTIVE_COMMANDS,
-  STREAMING_COMMANDS,
   useSession,
+  STREAMING_COMMANDS,
+  INTERACTIVE_COMMANDS,
 } from '#context/session.tsx'
 import { startSandboxWarmup } from '#lib/warmup.ts'
 import { TerminalManager } from '#lib/terminal-manager.ts'
 import { initKeyboardInsets } from '#lib/keyboard-insets.ts'
 import { createCommandRunner } from '#lib/command-runner.ts'
 import { ExtraKeyboard } from '#components/extra-keyboard.tsx'
+import { Status, type StatusMode } from '#components/status.tsx'
 import { createInteractiveSession } from '#lib/interactive-session.ts'
 import { createVirtualKeyboardBridge } from '#lib/virtual-keyboard.ts'
 
@@ -148,14 +149,18 @@ function Page() {
     }
     window.addEventListener('message', handleMessage)
 
+    const debouncedHandleResize = debounce(() => {
+      fitAddon.fit()
+      notifyResize({ cols: terminal.cols, rows: terminal.rows })
+    }, 400)
+
     let resizeListener = () => {}
     const handleResize = () => {
       if (document.hidden) return
       if (resizeRaf) cancelAnimationFrame(resizeRaf)
       resizeRaf = window.requestAnimationFrame(() => {
         resizeRaf = undefined
-        fitAddon.fit()
-        notifyResize({ cols: terminal.cols, rows: terminal.rows })
+        debouncedHandleResize()
       })
     }
     resizeListener = handleResize
@@ -404,16 +409,14 @@ function Page() {
         <div
           id="terminal"
           data-element="terminal"
-          ref={element => {
-            terminalRef = element
-          }}
+          ref={terminalRef}
           class="h-full w-full"
         />
       </div>
       <footer
         id="footer"
-        class="flex items-center justify-between gap-4 px-4 py-3 text-xs uppercase tracking-wide text-slate-400">
-        <span>Session {sessionLabel()}</span>
+        class="flex items-center justify-between gap-4 pl-1 text-[10px] uppercase tracking-wide text-white/10 hover:text-white">
+        <span>{sessionLabel()}</span>
         <ExtraKeyboard
           onVirtualKey={event => {
             const { key, modifiers } = event.detail

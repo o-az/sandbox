@@ -4,7 +4,7 @@ import { json } from '@tanstack/solid-start'
 import { createFileRoute } from '@tanstack/solid-router'
 import { getSandbox, type ExecResult } from '@cloudflare/sandbox'
 
-import { makeObjectStorage } from '@solid-primitives/storage'
+import { ensureSandboxSession } from '#lib/server-sandbox.ts'
 
 const DEFAULT_TIMEOUT_MS = 25_000
 
@@ -58,48 +58,3 @@ const _fakeResult = (): ExecResult => ({
   timestamp: '1989-01-01T00:00:00.000Z',
   sessionId: 'session-01010101-0202-0303-0404-050505050505',
 })
-
-type SandboxRecord = {
-  sandboxId: string
-  activeTabs: string[]
-}
-
-type SandboxGlobal = typeof globalThis & {
-  __sandboxSessions?: Record<string, string>
-}
-
-const sandboxStorage = makeObjectStorage(
-  ((globalThis as SandboxGlobal).__sandboxSessions ??= {}),
-)
-
-function ensureSandboxSession(
-  sessionId: string,
-  tabId?: string,
-): SandboxRecord {
-  const record = readSandboxSession(sessionId) ?? {
-    sandboxId: sessionId,
-    activeTabs: [],
-  }
-
-  if (tabId && !record.activeTabs.includes(tabId)) {
-    record.activeTabs = [...record.activeTabs, tabId]
-  }
-
-  writeSandboxSession(sessionId, record)
-  return record
-}
-
-function readSandboxSession(sessionId: string): SandboxRecord | undefined {
-  const raw = sandboxStorage.getItem(sessionId)
-  if (!raw) return undefined
-  try {
-    return JSON.parse(raw) as SandboxRecord
-  } catch {
-    sandboxStorage.removeItem(sessionId)
-    return undefined
-  }
-}
-
-function writeSandboxSession(sessionId: string, record: SandboxRecord) {
-  sandboxStorage.setItem(sessionId, JSON.stringify(record))
-}

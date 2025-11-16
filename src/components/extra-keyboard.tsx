@@ -233,7 +233,7 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
         data-hidden={isHidden() ? 'true' : 'false'}
         data-element="extra-keyboard"
         style={{ bottom: KEYBOARD_OFFSET }}
-        class="fixed inset-x-0 z-[1000] flex justify-center gap-3.5 bg-[#0c0f15] p-2.5 transition-[opacity,transform] duration-300 ease-out"
+        class="fixed inset-x-0 z-1000 flex justify-center gap-3.5 bg-[#0c0f15] p-2.5 transition-[opacity,transform] duration-300 ease-out"
         classList={{
           'pointer-events-none translate-y-full opacity-0': isHidden(),
         }}>
@@ -251,7 +251,7 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
       <button
         type="button"
         id="extra-keys-toggler"
-        class="fixed right-0 z-[1001] m-1 rounded border border-white/15 bg-[#0c0f15]/90 px-2 py-1 text-xs uppercase tracking-wide text-white transition hover:text-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#58a6ff]"
+        class="fixed right-0 z-1001 m-1 rounded border border-white/15 bg-[#0c0f15]/90 px-2 py-1 text-xs uppercase tracking-wide text-white transition hover:text-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#58a6ff]"
         style={{ bottom: KEYBOARD_OFFSET }}
         data-element="extra-keys-toggler"
         onClick={handleToggleClick}>
