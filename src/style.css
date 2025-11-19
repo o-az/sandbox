@@ -150,8 +150,10 @@ input[type="number"] {
 
 /* OVERRIDES */
 
-.xterm-scrollable-element {
-  max-width: 1% !important;
+.scrollbar {
+  max-width: 0% !important;
+  visibility: hidden !important;
+  background-color: transparent !important;
 }
 
 .xterm-viewport,

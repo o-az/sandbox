@@ -62,6 +62,7 @@
         "noBannedTypes": "off",
         "noStaticOnlyClass": "off",
         "noImportantStyles": "off",
+        "noUselessFragments": "off",
         "noUselessConstructor": "off"
       },
       "performance": {

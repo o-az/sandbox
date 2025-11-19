@@ -9,6 +9,8 @@ export function DevTools() {
     setShowDevTools(!showDevTools())
   })
 
+  if (!import.meta.env.DEV) return <></>
+
   return (
     <Show when={showDevTools()}>
       <TanStackRouterDevtools
