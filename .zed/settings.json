@@ -5,6 +5,15 @@
       ".env.*"
     ]
   },
+  "hidden_files": [
+    "**/.wrangler",
+    "**/.tanstack",
+    "**/.claude"
+  ],
+  "file_scan_exclusions": [
+    "**/.wrangler",
+    "**/.tanstack"
+  ],
   "languages": {
     "HTML": {
       "code_actions_on_format": {
