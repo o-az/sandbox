@@ -244,9 +244,10 @@ export function useTerminalSession({
     cleanupInsets?.()
     terminalManager.dispose()
 
-    if (isRefreshing) {
+    // Skip sandbox destruction during HMR or page refresh
+    if (import.meta.hot || isRefreshing) {
       console.debug(
-        'Page refreshing, keeping sandbox alive:',
+        'Keeping sandbox alive (HMR or refresh):',
         session.sessionId,
       )
       return

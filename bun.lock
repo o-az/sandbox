@@ -55,6 +55,7 @@
         "tailwindcss": "^4.1.17",
         "typed-query-selector": "^2.12.0",
         "typescript": "^5.9.3",
+        "uWebSockets.js": "uNetworking/uWebSockets.js",
         "unplugin-info": "^1.2.4",
         "vite": "npm:rolldown-vite@latest",
         "vite-plugin-devtools-json": "^1.0.0",
@@ -958,6 +959,8 @@
     "typed-query-selector": ["typed-query-selector@2.12.0", "", {}, "sha512-SbklCd1F0EiZOyPiW192rrHZzZ5sBijB6xM+cpmrwDqObvdtunOHHIk9fCGsoK5JVIYXoyEp4iEdE3upFH3PAg=="],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "uWebSockets.js": ["uWebSockets.js@github:uNetworking/uWebSockets.js#6499438", {}, "uNetworking-uWebSockets.js-6499438"],
 
     "ufo": ["ufo@1.6.1", "", {}, "sha512-9a4/uxlTWJ4+a5i0ooc1rU7C7YOw3wT+UGqdeNNHWnOF9qcMBgLRS+4IYUqbczewFx4mLEig6gawh7X6mFlEkA=="],
 

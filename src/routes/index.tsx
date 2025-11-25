@@ -6,6 +6,7 @@ import {
   STREAMING_COMMANDS,
   INTERACTIVE_COMMANDS,
 } from '#context/session.tsx'
+import { ShareButton } from '#components/share-button.tsx'
 import { ExtraKeyboard } from '#components/extra-keyboard.tsx'
 import { Status, type StatusMode } from '#components/status.tsx'
 import { useTerminalSession } from '#lib/hooks/use-terminal-session.ts'
@@ -37,6 +38,9 @@ function Page() {
   const [sessionLabel, setSessionLabel] = createSignal('')
   const [statusMode, setStatusMode] = createSignal<StatusMode>('offline')
   const [statusMessage, setStatusMessage] = createSignal('Ready')
+  const [prefilledCommand, setPrefilledCommand] = createSignal<string | null>(
+    null,
+  )
 
   let terminalRef: HTMLDivElement | undefined
   let virtualKeyboardBridge:
@@ -46,6 +50,7 @@ function Page() {
   onMount(() => {
     const session = ensureClientSession()
     setSessionLabel(session.sessionId)
+    setPrefilledCommand(session.prefilledCommand)
 
     if (!terminalRef) throw new Error('Terminal mount missing')
 
@@ -80,6 +85,9 @@ function Page() {
       class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <header class="relative">
         <Status mode={statusMode()} message={statusMessage()} />
+        <div class="absolute top-1 right-1 z-50">
+          <ShareButton prefilledCommand={prefilledCommand()} />
+        </div>
       </header>
       <div
         id="terminal-container"
@@ -93,7 +101,7 @@ function Page() {
       </div>
       <footer
         id="footer"
-        class="flex items-center justify-between gap-4 pl-1 text-[10px] uppercase tracking-wide text-white/10 hover:text-white">
+        class="flex items-center justify-between gap-4 px-2 py-1 text-[10px] uppercase tracking-wide text-white/10 hover:text-white">
         <span class="hidden" data-todo="true">
           {sessionLabel()}
         </span>
