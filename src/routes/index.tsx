@@ -144,21 +144,39 @@ function Page() {
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'execute') {
-        terminal.options.disableStdin = false
-        const enterEvent = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-        })
-        terminal.textarea?.dispatchEvent(enterEvent)
-        setTimeout(() => {
-          if (session.embedMode) terminal.options.disableStdin = true
-        }, 200)
+        executeEmbedCommand()
       }
     }
     makeEventListener(window, 'message', handleMessage)
+
+    function executeEmbedCommand() {
+      if (!session.embedMode) return
+      terminal.options.disableStdin = false
+      const enterEvent = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+      })
+      terminal.textarea?.dispatchEvent(enterEvent)
+      setTimeout(() => {
+        if (session.embedMode) terminal.options.disableStdin = true
+      }, 200)
+    }
+
+    // Allow Enter key to execute in embed mode
+    if (session.embedMode) {
+      const handleEmbedKeydown = (event: KeyboardEvent) => {
+        if (event.key === 'Enter' && !commandInProgress) {
+          event.preventDefault()
+          executeEmbedCommand()
+        }
+      }
+      makeEventListener(terminalElement, 'keydown', handleEmbedKeydown, {
+        capture: true,
+      })
+    }
 
     const debouncedHandleResize = debounce(() => {
       fitAddon.fit()
@@ -433,12 +451,12 @@ function Page() {
       </header>
       <div
         id="terminal-container"
-        class="scroll-smooth flex-1 overflow-x-hidden bg-[#0d1117]">
+        class="min-h-0 flex-1 overflow-hidden bg-[#0d1117]">
         <div
           id="terminal"
           data-element="terminal"
           ref={terminalRef}
-          class="size-full scroll-smooth"
+          class="size-full"
         />
       </div>
       <footer

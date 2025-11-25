@@ -14,10 +14,17 @@ export type TerminalInitOptions = {
   onAltNavigation?: (event: KeyboardEvent) => boolean
 }
 
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  )
+}
+
 export class TerminalManager {
   #terminal: Terminal
   #fitAddon: FitAddon
-  #webglAddon: WebglAddon
+  #webglAddon: WebglAddon | null = null
   #unicode11Addon: Unicode11Addon
   #serializeAddon: SerializeAddon
   #searchAddon: SearchAddon
@@ -27,6 +34,7 @@ export class TerminalManager {
   #webLinksAddon: WebLinksAddon
   #xtermReadline: Readline
   #initialized = false
+  #isMobile = isMobileDevice()
 
   constructor() {
     this.#terminal = new Terminal({
@@ -68,7 +76,8 @@ export class TerminalManager {
     })
 
     this.#fitAddon = new FitAddon()
-    this.#webglAddon = new WebglAddon()
+    if (!this.#isMobile) this.#webglAddon = new WebglAddon()
+
     this.#unicode11Addon = new Unicode11Addon()
     this.#serializeAddon = new SerializeAddon()
     this.#searchAddon = new SearchAddon({ highlightLimit: 50 })
@@ -81,7 +90,7 @@ export class TerminalManager {
     })
     this.#xtermReadline = new Readline()
 
-    this.#webglAddon.onContextLoss(() => this.#webglAddon.dispose())
+    this.#webglAddon?.onContextLoss(() => this.#webglAddon?.dispose())
     this.#terminal.onBell(() => console.info('bell'))
   }
 
@@ -96,7 +105,16 @@ export class TerminalManager {
     // @ts-expect-error
     window.xterm = this.#terminal
 
-    this.#terminal.loadAddon(this.#webglAddon)
+    if (this.#webglAddon) {
+      try {
+        this.#terminal.loadAddon(this.#webglAddon)
+      } catch (error) {
+        console.warn(
+          'WebGL addon failed to load, falling back to canvas:',
+          error,
+        )
+      }
+    }
     this.#terminal.loadAddon(this.#fitAddon)
     this.#terminal.loadAddon(this.#searchAddon)
     this.#terminal.loadAddon(this.#clipboardAddon)

@@ -57,12 +57,12 @@ function AppShell() {
 
 function RootDocument({ children }: { children: Solid.JSX.Element }) {
   return (
-    <html lang="en" class="h-full bg-[#0d1117] min-size-max">
+    <html lang="en" class="h-dvh bg-[#0d1117] overflow-hidden">
       <head>
         <HydrationScript />
         <title>Sandbox</title>
       </head>
-      <body class="antialiased flex h-full min-h-screen flex-col overflow-hidden bg-[#0d1117] font-[Lilex] text-[#c9d1d9]">
+      <body class="antialiased flex h-dvh min-h-dvh max-h-dvh flex-col overflow-hidden bg-[#0d1117] font-[Lilex] text-[#c9d1d9]">
         <HeadContent />
         {children}
         <DevTools />

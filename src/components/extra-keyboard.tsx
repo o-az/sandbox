@@ -9,7 +9,6 @@ import {
 } from 'solid-js'
 import type { Terminal } from '@xterm/xterm'
 import type { JSX } from 'solid-js/h/jsx-runtime'
-import { isMobile } from '@solid-primitives/platform'
 import { useKeyDownEvent } from '@solid-primitives/keyboard'
 import { createActiveElement } from '@solid-primitives/active-element'
 import { createEventDispatcher } from '@solid-primitives/event-dispatcher'
@@ -84,7 +83,7 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
 
   const toggleLabel = createMemo(() => {
     if (!hasInteracted()) return 'Extra Keys'
-    return isHidden() ? 'Show Extra Keys' : 'Hide Extra Keys'
+    return isHidden() ? 'Show' : 'Hide'
   })
 
   let synthesizing = false
@@ -248,11 +247,10 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
     writeToTerminal(value)
   }
 
-  const insideIFrame = useEmbedDetector()
-  if (insideIFrame()) return null
+  const isEmbedded = useEmbedDetector()
 
   return (
-    <Show when={ready()}>
+    <Show when={ready() && !isEmbedded()}>
       <div
         data-hidden={isHidden() ? 'true' : 'false'}
         data-element="extra-keyboard"
@@ -336,7 +334,6 @@ function createTerminalBridge() {
 
   onMount(() => {
     if (typeof window === 'undefined') return
-    if (isMobile) return
     if (attach()) return
     pollHandle = window.setInterval(() => {
       if (attach() && typeof pollHandle === 'number') {
