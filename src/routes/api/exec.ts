@@ -28,10 +28,24 @@ export const Route = createFileRoute('/api/exec')({
         const sandboxId = ensureSandboxSession(sessionId).sandboxId
         const sandbox = getSandbox(env.Sandbox, sandboxId)
 
-        const result = await sandbox.exec(command, {
-          timeout: DEFAULT_TIMEOUT_MS,
-        })
-        return json({ ...result, sandboxId }, { status: 200 })
+        try {
+          const result = await sandbox.exec(command, {
+            timeout: DEFAULT_TIMEOUT_MS,
+          })
+          return json({ ...result, sandboxId }, { status: 200 })
+        } catch (error) {
+          // Handle race condition where session is being created by another request
+          const message = error instanceof Error ? error.message : String(error)
+          if (message.includes('already exists')) {
+            // Retry once after a brief delay
+            await new Promise(resolve => setTimeout(resolve, 100))
+            const result = await sandbox.exec(command, {
+              timeout: DEFAULT_TIMEOUT_MS,
+            })
+            return json({ ...result, sandboxId }, { status: 200 })
+          }
+          throw error
+        }
       },
       OPTIONS: () =>
         new Response(null, {

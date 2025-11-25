@@ -38,6 +38,17 @@ export const Route = createFileRoute('/api/health')({
             { status: 200 },
           )
         } catch (error) {
+          // Handle race condition where session is being created by another request
+          const message = error instanceof Error ? error.message : String(error)
+          if (message.includes('already exists')) {
+            // Retry once after a brief delay
+            await new Promise(resolve => setTimeout(resolve, 100))
+            await sandbox.exec('true', { timeout: HEALTH_TIMEOUT_MS })
+            return json(
+              { activeTabs: getActiveTabCount(sessionId) },
+              { status: 200 },
+            )
+          }
           console.error('Sandbox warmup failed', error)
           return json({ error: 'Sandbox warmup failed' }, { status: 500 })
         }
