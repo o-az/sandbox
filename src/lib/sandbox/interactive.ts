@@ -50,6 +50,13 @@ export function createInteractiveSession({
       return Promise.resolve()
     }
 
+    // Reject any pending promise before starting a new session
+    interactiveReject?.(
+      new Error('Session replaced by new interactive session'),
+    )
+    interactiveResolve = undefined
+    interactiveReject = undefined
+
     interactiveMode = true
     interactiveInitQueued = command.endsWith('\n') ? command : `${command}\n`
     setStatus('interactive')
@@ -99,16 +106,26 @@ export function createInteractiveSession({
     const { data } = event
     if (typeof data === 'string') {
       try {
-        const payload: any = JSON.parse(data)
-        if (payload?.type === 'pong' || payload?.type === 'ready') return
-        if (payload?.type === 'process-exit') {
-          const exitCode =
-            typeof payload.exitCode === 'number' ? payload.exitCode : 'unknown'
-          terminal.writeln(
-            `\r\n[interactive session exited with code ${exitCode}]`,
-          )
-          resetInteractiveState('online')
-          return
+        const payload: unknown = JSON.parse(data)
+        if (
+          typeof payload === 'object' &&
+          payload !== null &&
+          'type' in payload
+        ) {
+          const messageType = (payload as { type: unknown }).type
+          if (messageType === 'pong' || messageType === 'ready') return
+          if (messageType === 'process-exit') {
+            const exitCode =
+              'exitCode' in payload &&
+              typeof (payload as { exitCode: unknown }).exitCode === 'number'
+                ? (payload as { exitCode: number }).exitCode
+                : 'unknown'
+            terminal.writeln(
+              `\r\n[interactive session exited with code ${exitCode}]`,
+            )
+            resetInteractiveState('online')
+            return
+          }
         }
       } catch {
         terminal.write(data, () => {
@@ -163,9 +180,22 @@ export function createInteractiveSession({
   function sendInteractiveInput(text: string) {
     if (!text) return
     if (!interactiveSocket || interactiveSocket.readyState !== WebSocket.OPEN) {
+      if (logLevel === 'debug') {
+        console.warn(
+          'WebSocket not open, input discarded:',
+          text.length,
+          'chars',
+        )
+      }
       return
     }
-    interactiveSocket.send(textEncoder.encode(text))
+    try {
+      interactiveSocket.send(textEncoder.encode(text))
+    } catch (error) {
+      if (logLevel === 'debug') {
+        console.error('Failed to send input:', error)
+      }
+    }
   }
 
   function sendInteractiveJson(payload: unknown) {

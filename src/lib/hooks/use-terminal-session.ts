@@ -298,8 +298,10 @@ export function useTerminalSession({
       .catch(error => {
         awaitingInput = false
         if (state.isInteractiveMode()) return
-        console.error('xtermReadline error', error)
-        state.actions.setError('Input error')
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
+        console.error('xtermReadline error:', errorMessage, error)
+        state.actions.setError(`Input error: ${errorMessage}`)
         startInputLoop()
       })
 
@@ -466,12 +468,19 @@ export function useTerminalSession({
 
   // Wait for initial warmup to complete before accepting commands
   // This prevents race conditions where commands and warmup both try to create the session
-  void warmupController.ready.then(() => {
-    // Re-fit and scroll after warmup content is written to ensure viewport is correct
-    fitAddon.fit()
-    terminal.scrollToBottom()
-    startInputLoop()
-  })
+  warmupController.ready
+    .then(() => {
+      // Re-fit and scroll after warmup content is written to ensure viewport is correct
+      fitAddon.fit()
+      terminal.scrollToBottom()
+      startInputLoop()
+    })
+    .catch(error => {
+      console.error('Warmup failed:', error)
+      state.actions.setError('Warmup failed')
+      // Still start the input loop so user can interact
+      startInputLoop()
+    })
 
   return {
     virtualKeyboardBridge,

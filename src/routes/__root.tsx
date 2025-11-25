@@ -5,6 +5,7 @@ import {
   Scripts,
   HeadContent,
   createRootRoute,
+  redirect,
 } from '@tanstack/solid-router'
 import * as Solid from 'solid-js'
 import { HydrationScript } from 'solid-js/web'
@@ -16,6 +17,20 @@ import { DevTools, useDevTools } from '#components/dev-tools.tsx'
 import { DefaultCatchBoundary } from '#components/default-catch-boundary.tsx'
 
 export const Route = createRootRoute({
+  beforeLoad: ({ location }) => {
+    // Redirect /?cmd=...&html to /command?cmd=...
+    if (location.pathname === '/') {
+      const params = new URLSearchParams(location.searchStr)
+      const cmd = params.get('cmd')
+      const hasHtml = params.has('html')
+      if (cmd && hasHtml) {
+        throw redirect({
+          to: '/command',
+          search: { cmd },
+        })
+      }
+    }
+  },
   head: () => ({
     meta: [
       { charset: 'utf-8' },

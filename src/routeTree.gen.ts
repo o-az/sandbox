@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DocsRouteRouteImport } from './routes/docs/route'
+import { Route as CommandRouteRouteImport } from './routes/command/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiWsRouteImport } from './routes/api/ws'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
@@ -21,6 +22,11 @@ import { Route as ApiDestroyRouteImport } from './routes/api/destroy'
 const DocsRouteRoute = DocsRouteRouteImport.update({
   id: '/docs',
   path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommandRouteRoute = CommandRouteRouteImport.update({
+  id: '/command',
+  path: '/command',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -61,6 +67,7 @@ const ApiDestroyRoute = ApiDestroyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/command': typeof CommandRouteRoute
   '/docs': typeof DocsRouteRoute
   '/api/destroy': typeof ApiDestroyRoute
   '/api/exec': typeof ApiExecRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/command': typeof CommandRouteRoute
   '/docs': typeof DocsRouteRoute
   '/api/destroy': typeof ApiDestroyRoute
   '/api/exec': typeof ApiExecRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/command': typeof CommandRouteRoute
   '/docs': typeof DocsRouteRoute
   '/api/destroy': typeof ApiDestroyRoute
   '/api/exec': typeof ApiExecRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/command'
     | '/docs'
     | '/api/destroy'
     | '/api/exec'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/command'
     | '/docs'
     | '/api/destroy'
     | '/api/exec'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/command'
     | '/docs'
     | '/api/destroy'
     | '/api/exec'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CommandRouteRoute: typeof CommandRouteRoute
   DocsRouteRoute: typeof DocsRouteRoute
   ApiDestroyRoute: typeof ApiDestroyRoute
   ApiExecRoute: typeof ApiExecRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/solid-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/command': {
+      id: '/command'
+      path: '/command'
+      fullPath: '/command'
+      preLoaderRoute: typeof CommandRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -197,6 +217,7 @@ declare module '@tanstack/solid-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CommandRouteRoute: CommandRouteRoute,
   DocsRouteRoute: DocsRouteRoute,
   ApiDestroyRoute: ApiDestroyRoute,
   ApiExecRoute: ApiExecRoute,
@@ -210,6 +231,7 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/solid-start'
 declare module '@tanstack/solid-start' {
   interface Register {
     ssr: true

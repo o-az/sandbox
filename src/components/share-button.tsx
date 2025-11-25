@@ -1,4 +1,5 @@
 import { createSignal } from 'solid-js'
+import { writeClipboard } from '@solid-primitives/clipboard'
 
 type ShareButtonProps = {
   prefilledCommand?: string | null
@@ -12,9 +13,11 @@ export function ShareButton(props: ShareButtonProps) {
     try {
       const historyJson = localStorage.getItem('history')
       if (!historyJson) return ''
-      const history = JSON.parse(historyJson) as Array<string>
+      const history: unknown = JSON.parse(historyJson)
       if (!Array.isArray(history) || history.length === 0) return ''
-      return history.at(0)?.trim() || ''
+      const firstItem = history[0]
+      if (typeof firstItem !== 'string') return ''
+      return firstItem.trim()
     } catch {
       return ''
     }
@@ -35,11 +38,11 @@ export function ShareButton(props: ShareButtonProps) {
     url.searchParams.set('embed', 'true')
 
     try {
-      await navigator.clipboard.writeText(url.toString().replaceAll('/?', '?'))
+      await writeClipboard(url.toString().replaceAll('/?', '?'))
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
+    } catch {
+      // Clipboard write failed, do nothing
     }
   }
 

@@ -105,8 +105,8 @@ export class TerminalManager {
     if (!element) throw new Error('Terminal element is required')
 
     this.#terminal.open(element)
-    // @ts-expect-error
-    window.xterm = this.#terminal
+    // Expose terminal for debugging in development
+    ;(window as Window & { xterm?: Terminal }).xterm = this.#terminal
 
     // ResizeObserver for container size changes (more reliable than window resize)
     this.#resizeObserver = new ResizeObserver(() => {
@@ -131,7 +131,18 @@ export class TerminalManager {
     this.#terminal.loadAddon(this.#unicode11Addon)
     this.#terminal.unicode.activeVersion = '11'
     this.#terminal.loadAddon(this.#serializeAddon)
-    this.#terminal.loadAddon(this.#ligaturesAddon)
+    // LigaturesAddon requires user activation for font access - load on first interaction
+    const loadLigatures = () => {
+      try {
+        this.#terminal.loadAddon(this.#ligaturesAddon)
+      } catch {
+        // Ignore if ligatures fail to load
+      }
+      element.removeEventListener('click', loadLigatures)
+      element.removeEventListener('keydown', loadLigatures)
+    }
+    element.addEventListener('click', loadLigatures, { once: true })
+    element.addEventListener('keydown', loadLigatures, { once: true })
     this.#terminal.loadAddon(this.#webLinksAddon)
     this.#terminal.loadAddon(this.#imageAddon)
     this.#terminal.loadAddon(this.#xtermReadline)
