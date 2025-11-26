@@ -11,10 +11,18 @@ RUN apt-get update --yes \
 
 WORKDIR /usr/src/app
 
-RUN echo '{ "type": "module" }' > package.json \
-  && bun add --production node-pty@beta crossws
+COPY ./websocket.ts ./websocket.ts
 
-FROM docker.io/cloudflare/sandbox:0.5.3 AS runtime
+RUN echo '{ "type": "module" }' > package.json \
+  && bun add --production node-pty@beta crossws \
+  && bun build ./websocket.ts \
+    --outfile='./websocket.js' \
+    --format='esm' \
+    --target='node' \
+    --external='node-pty' \
+    --minify
+
+FROM docker.io/cloudflare/sandbox:0.5.4 AS runtime
 
 ENV CLICOLOR=1
 ENV FORCE_COLOR=3
@@ -35,9 +43,9 @@ COPY --from=node:lts-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/no
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
   && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-COPY ./websocket.ts /container-server/pty/websocket.ts
+COPY --from=builder /usr/src/app/websocket.js /container-server/pty/websocket.js
+COPY --from=builder /usr/src/app/node_modules/node-pty /container-server/pty/node_modules/node-pty
 COPY ./scripts/startup.sh /container-server/pty/startup.sh
-COPY --from=builder /usr/src/app/node_modules /container-server/pty/node_modules
 
 RUN chmod +x /container-server/pty/startup.sh
 
