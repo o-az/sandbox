@@ -81,8 +81,22 @@ function stripEmptyTerminalRows(html: string): string {
   const emptyRowPattern =
     /<div>\s*<span(?:\s+[^>]*)?>[\s\u00a0]*<\/span>\s*<\/div>/g
 
-  const withoutEmptyRows = html.replace(emptyRowPattern, '')
-  const trimmedRows = trimRowTrailingWhitespace(withoutEmptyRows)
+  // Only trim leading and trailing padding rows; keep interior blanks which may
+  // be intentional output (ghostty snapshots no longer pad the viewport).
+  const leadingMatch = html.match(
+    /^((?:<div>\s*<span[^>]*>[\s\u00a0]*<\/span>\s*<\/div>)+)/,
+  )
+  const trailingMatch = html.match(
+    /((?:<div>\s*<span[^>]*>[\s\u00a0]*<\/span>\s*<\/div>)+)$/,
+  )
+
+  const startContent = leadingMatch?.[1]?.length ?? 0
+  const endContent = trailingMatch?.[1]
+    ? html.length - trailingMatch[1].length
+    : html.length
+
+  const preserved = html.slice(startContent, endContent)
+  const trimmedRows = trimRowTrailingWhitespace(preserved)
   const withoutTrailingPrompt = removeTrailingPromptRow(trimmedRows)
   return insertCommandResultGap(withoutTrailingPrompt)
 }

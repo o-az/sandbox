@@ -361,23 +361,15 @@ export function useTerminalSession({
   }
 
   function dispatchEnterKey() {
-    // Use xterm.js internal API to trigger data event directly
-    // This is more reliable than synthetic keyboard events which may be blocked
-    const core = (
-      terminal as unknown as {
-        _core?: {
-          coreService?: {
-            triggerDataEvent(data: string, wasUserInput?: boolean): void
-          }
-        }
+    try {
+      if (typeof terminal.input === 'function') {
+        terminal.input('\r', true)
+        return
       }
-    )._core
-    if (core?.coreService?.triggerDataEvent) {
-      core.coreService.triggerDataEvent('\r', true)
-      return
+    } catch (error) {
+      console.debug('terminal.input failed', error)
     }
 
-    // Fallback to synthetic keyboard event (less reliable but worth trying)
     const enterEvent = new KeyboardEvent('keydown', {
       key: 'Enter',
       code: 'Enter',

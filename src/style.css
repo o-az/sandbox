@@ -166,16 +166,6 @@ input[type="number"] {
   background-color: transparent !important;
 }
 
-.xterm {
-  padding: 8px;
-  padding-top: unset;
-}
-
-.xterm-viewport,
-.xterm-scrollable-element {
-  background-color: #0d1117 !important;
-}
-
 pre.shiki {
   padding: 16px 16px 10px;
   overflow-x: auto;

@@ -15,10 +15,7 @@ export class TerminalSerializeAdapter {
   }
 
   serializeAsHTML(options?: SerializeHtmlOptions): string {
-    const wasmTerminal = this.#terminal.wasmTerm
-    if (!wasmTerminal) return '<pre class="terminal-html"></pre>'
-
-    const rows = collectRows(wasmTerminal, this.#terminal.rows)
+    const rows = collectRows(this.#terminal)
     const lastContentRow = findLastContentRow(rows)
     const firstContentRow = findFirstContentRow(rows)
     let visibleRows: Array<GhosttyCell[] | null> = []
@@ -46,36 +43,43 @@ export class TerminalSerializeAdapter {
   }
 
   serialize(): string {
-    const wasmTerminal = this.#terminal.wasmTerm
-    if (!wasmTerminal) return ''
-
-    const rows = collectRows(wasmTerminal, this.#terminal.rows)
+    const rows = collectRows(this.#terminal)
     return rows.map(renderRowText).join('\n')
   }
 }
 
-function collectRows(
-  wasmTerminal: { getLine(row: number): GhosttyCell[] | null },
-  count: number,
-): Array<GhosttyCell[] | null> {
+function collectRows(terminal: Terminal): Array<GhosttyCell[] | null> {
   const rows: Array<GhosttyCell[] | null> = []
-  for (let index = 0; index < count; index++) {
+
+  // Include scrollback first so older output isn't lost in snapshots.
+  const scrollbackLength =
+    typeof terminal.getScrollbackLength === 'function'
+      ? terminal.getScrollbackLength()
+      : 0
+
+  for (let index = 0; index < scrollbackLength; index++) {
+    if (typeof terminal.getScrollbackLine === 'function') {
+      rows.push(terminal.getScrollbackLine(index))
+    }
+  }
+
+  const wasmTerminal = terminal.wasmTerm
+  if (!wasmTerminal) return rows
+
+  for (let index = 0; index < terminal.rows; index++) {
     rows.push(wasmTerminal.getLine(index))
   }
+
   return rows
 }
 
 function renderRow(cells: GhosttyCell[] | null): string {
-  if (!cells || cells.length === 0) {
-    return '<div><span>&nbsp;</span></div>'
-  }
+  if (!cells || cells.length === 0) return '<div><span>&nbsp;</span></div>'
 
   const trimmed = trimRowCells(cells)
-  if (trimmed.length === 0) {
-    return '<div><span>&nbsp;</span></div>'
-  }
+  if (trimmed.length === 0) return '<div><span>&nbsp;</span></div>'
 
-  const segments: string[] = []
+  const segments: Array<string> = []
   let currentStyle: string | undefined
   let buffer = ''
 

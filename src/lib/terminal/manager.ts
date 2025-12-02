@@ -28,15 +28,14 @@ export class TerminalManager {
         foreground: '#f0f6fc',
         cursor: '#58a6ff',
         selectionBackground: '#58a6ff33',
-        // selectionInactiveBackground: '#58a6ff22',
-        black: '#484f58',
+        black: '#0d1117',
         red: '#ff7b72',
         green: '#3fb950',
         yellow: '#d29922',
         blue: '#58a6ff',
         magenta: '#bc8cff',
         cyan: '#39c5cf',
-        white: '#b1bac4',
+        white: '#f0f6fc',
         brightBlack: '#6e7681',
         brightRed: '#ffa198',
         brightGreen: '#56d364',
@@ -51,6 +50,7 @@ export class TerminalManager {
     const terminalOptions = this.#terminal.options as {
       tabStopWidth?: number
     }
+
     if (typeof terminalOptions.tabStopWidth !== 'number') {
       terminalOptions.tabStopWidth = 8
     }
