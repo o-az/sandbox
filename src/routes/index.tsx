@@ -1,4 +1,10 @@
-import { createSignal, onMount } from 'solid-js'
+import {
+  onMount,
+  getOwner,
+  onCleanup,
+  createSignal,
+  runWithOwner,
+} from 'solid-js'
 import { createFileRoute } from '@tanstack/solid-router'
 
 import {
@@ -9,6 +15,7 @@ import {
 import { ShareButton } from '#components/share-button.tsx'
 import { ExtraKeyboard } from '#components/extra-keyboard.tsx'
 import { Status, type StatusMode } from '#components/status.tsx'
+import { waitForTerminalRuntime } from '#lib/terminal/runtime.ts'
 import { useTerminalSession } from '#lib/hooks/use-terminal-session.ts'
 import type { createVirtualKeyboardBridge } from '#lib/terminal/keyboard.ts'
 
@@ -50,6 +57,13 @@ function Page() {
     | ReturnType<typeof createVirtualKeyboardBridge>
     | undefined
 
+  let isActive = true
+  onCleanup(() => {
+    isActive = false
+  })
+
+  const componentOwner = getOwner()
+
   onMount(() => {
     const session = ensureClientSession()
     setSessionLabel(session.sessionId)
@@ -65,27 +79,44 @@ function Page() {
       })
     }
 
-    const terminalSession = useTerminalSession({
-      session,
-      terminalElement: terminalRef,
-      streamingCommands: STREAMING_COMMANDS,
-      interactiveCommands: INTERACTIVE_COMMANDS,
-      localCommands: LOCAL_COMMANDS,
-      prompt: PROMPT,
-      isHotReload,
-      setStatusMode,
-      setStatusMessage,
-      onRefreshIntent: markRefreshIntent,
-      onClearSession: clearStoredSessionState,
-    })
+    void (async () => {
+      try {
+        await waitForTerminalRuntime()
+      } catch (error) {
+        console.error('Failed to initialize terminal runtime', error)
+        setStatusMode('error')
+        setStatusMessage('Terminal failed to load')
+        return
+      }
 
-    virtualKeyboardBridge = terminalSession.virtualKeyboardBridge
+      if (!isActive || !componentOwner) return
 
-    // Expose terminal HTML serialization for sharing
-    setGetTerminalHtml(() => () => {
-      const { serializeAddon } = terminalSession.terminalManager
-      return serializeAddon.serializeAsHTML({ includeGlobalBackground: true })
-    })
+      runWithOwner(componentOwner, () => {
+        const terminalSession = useTerminalSession({
+          session,
+          terminalElement: terminalRef,
+          streamingCommands: STREAMING_COMMANDS,
+          interactiveCommands: INTERACTIVE_COMMANDS,
+          localCommands: LOCAL_COMMANDS,
+          prompt: PROMPT,
+          isHotReload,
+          setStatusMode,
+          setStatusMessage,
+          onRefreshIntent: markRefreshIntent,
+          onClearSession: clearStoredSessionState,
+        })
+
+        virtualKeyboardBridge = terminalSession.virtualKeyboardBridge
+
+        // Expose terminal HTML serialization for sharing
+        setGetTerminalHtml(() => () => {
+          const { serializeAddon } = terminalSession.terminalManager
+          return serializeAddon.serializeAsHTML({
+            includeGlobalBackground: true,
+          })
+        })
+      })
+    })()
   })
 
   return (

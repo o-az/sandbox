@@ -1,14 +1,14 @@
-import type { Terminal } from '@xterm/xterm'
-import type { SerializeAddon } from '@xterm/addon-serialize'
+import type { Terminal } from 'ghostty-web'
 
 import type { StatusMode } from '#components/status.tsx'
+import type { TerminalSerializeAdapter } from '#lib/terminal/serialize.ts'
 
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 export type InteractiveSessionOptions = {
   terminal: Terminal
-  serializeAddon: SerializeAddon
+  serializer: TerminalSerializeAdapter
   sessionId: string
   setStatus: (mode: StatusMode) => void
   onSessionExit?: (mode: StatusMode) => void
@@ -25,7 +25,7 @@ export type InteractiveSessionAPI = {
 
 export function createInteractiveSession({
   terminal,
-  serializeAddon,
+  serializer,
   sessionId,
   setStatus,
   onSessionExit,
@@ -39,7 +39,7 @@ export function createInteractiveSession({
   let interactiveInitQueued = ''
   let interactiveResolve: (() => void) | undefined
   let interactiveReject: ((reason?: unknown) => void) | undefined
-  let dataListener: import('@xterm/xterm').IDisposable | undefined
+  let dataListener: import('ghostty-web').IDisposable | undefined
 
   function startInteractiveSession(command: string) {
     if (interactiveMode) {
@@ -129,7 +129,7 @@ export function createInteractiveSession({
         }
       } catch {
         terminal.write(data, () => {
-          if (logLevel === 'debug') console.info(serializeAddon.serialize())
+          if (logLevel === 'debug') console.info(serializer.serialize())
         })
       }
       return
@@ -139,7 +139,7 @@ export function createInteractiveSession({
       const text = textDecoder.decode(new Uint8Array(data))
       if (text) {
         terminal.write(text, () => {
-          if (logLevel === 'debug') console.info(serializeAddon.serialize())
+          if (logLevel === 'debug') console.info(serializer.serialize())
         })
       }
       return
@@ -149,7 +149,7 @@ export function createInteractiveSession({
       const text = textDecoder.decode(data)
       if (text) {
         terminal.write(text, () => {
-          if (logLevel === 'debug') console.info(serializeAddon.serialize())
+          if (logLevel === 'debug') console.info(serializer.serialize())
         })
       }
     }

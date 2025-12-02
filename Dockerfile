@@ -22,7 +22,7 @@ RUN echo '{ "type": "module" }' > package.json \
     --external='node-pty' \
     --minify
 
-FROM docker.io/cloudflare/sandbox:0.5.6 AS runtime
+FROM docker.io/cloudflare/sandbox:0.6.0 AS runtime
 
 ENV CLICOLOR=1
 ENV FORCE_COLOR=3

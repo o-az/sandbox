@@ -1,64 +1,34 @@
-import { Terminal } from '@xterm/xterm'
 import { Readline } from 'xterm-readline'
-import { FitAddon } from '@xterm/addon-fit'
-import { WebglAddon } from '@xterm/addon-webgl'
-import { ImageAddon } from '@xterm/addon-image'
-import { SearchAddon } from '@xterm/addon-search'
-import { WebLinksAddon } from '@xterm/addon-web-links'
-import { SerializeAddon } from '@xterm/addon-serialize'
-import { Unicode11Addon } from '@xterm/addon-unicode11'
-import { ClipboardAddon } from '@xterm/addon-clipboard'
-import { LigaturesAddon } from '@xterm/addon-ligatures'
+import { FitAddon, Terminal } from 'ghostty-web'
+
+import { TerminalSerializeAdapter } from '#lib/terminal/serialize.ts'
 
 export type TerminalInitOptions = {
   onAltNavigation?: (event: KeyboardEvent) => boolean
 }
 
-function isMobileDevice(): boolean {
-  if (typeof window === 'undefined') return false
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent,
-  )
-}
-
 export class TerminalManager {
   #terminal: Terminal
   #fitAddon: FitAddon
-  #webglAddon: WebglAddon | null = null
-  #unicode11Addon: Unicode11Addon
-  #serializeAddon: SerializeAddon
-  #searchAddon: SearchAddon
-  #imageAddon: ImageAddon
-  #clipboardAddon: ClipboardAddon
-  #ligaturesAddon: LigaturesAddon
-  #webLinksAddon: WebLinksAddon
+  #serializeAddon: TerminalSerializeAdapter
   #xtermReadline: Readline
   #initialized = false
-  #isMobile = isMobileDevice()
   #resizeObserver: ResizeObserver | null = null
 
   constructor() {
     this.#terminal = new Terminal({
       fontSize: 17,
-      lineHeight: 1.2,
       scrollback: 5_000,
       convertEol: true,
       cursorBlink: true,
-      allowProposedApi: true,
-      scrollOnUserInput: false,
       cursorStyle: 'underline',
-      rightClickSelectsWord: true,
-      rescaleOverlappingGlyphs: true,
-      ignoreBracketedPasteMode: true,
-      cursorInactiveStyle: 'underline',
-      drawBoldTextInBrightColors: true,
       fontFamily: 'Lilex, monospace',
       theme: {
         background: '#0d1117',
         foreground: '#f0f6fc',
         cursor: '#58a6ff',
         selectionBackground: '#58a6ff33',
-        selectionInactiveBackground: '#58a6ff22',
+        // selectionInactiveBackground: '#58a6ff22',
         black: '#484f58',
         red: '#ff7b72',
         green: '#3fb950',
@@ -78,22 +48,17 @@ export class TerminalManager {
       },
     })
 
-    this.#fitAddon = new FitAddon()
-    if (!this.#isMobile) this.#webglAddon = new WebglAddon()
+    const terminalOptions = this.#terminal.options as {
+      tabStopWidth?: number
+    }
+    if (typeof terminalOptions.tabStopWidth !== 'number') {
+      terminalOptions.tabStopWidth = 8
+    }
 
-    this.#unicode11Addon = new Unicode11Addon()
-    this.#serializeAddon = new SerializeAddon()
-    this.#searchAddon = new SearchAddon({ highlightLimit: 50 })
-    this.#imageAddon = new ImageAddon({ showPlaceholder: true })
-    this.#clipboardAddon = new ClipboardAddon()
-    this.#ligaturesAddon = new LigaturesAddon()
-    this.#webLinksAddon = new WebLinksAddon((event, url) => {
-      event.preventDefault()
-      window.open(url, '_blank', 'noopener,noreferrer')
-    })
+    this.#fitAddon = new FitAddon()
+    this.#serializeAddon = new TerminalSerializeAdapter(this.#terminal)
     this.#xtermReadline = new Readline()
 
-    this.#webglAddon?.onContextLoss(() => this.#webglAddon?.dispose())
     this.#terminal.onBell(() => console.info('bell'))
   }
 
@@ -115,39 +80,16 @@ export class TerminalManager {
     })
     this.#resizeObserver.observe(element)
 
-    if (this.#webglAddon) {
-      try {
-        this.#terminal.loadAddon(this.#webglAddon)
-      } catch (error) {
-        console.warn(
-          'WebGL addon failed to load, falling back to canvas:',
-          error,
-        )
-      }
-    }
     this.#terminal.loadAddon(this.#fitAddon)
-    this.#terminal.loadAddon(this.#searchAddon)
-    this.#terminal.loadAddon(this.#clipboardAddon)
-    this.#terminal.loadAddon(this.#unicode11Addon)
-    this.#terminal.unicode.activeVersion = '11'
-    this.#terminal.loadAddon(this.#serializeAddon)
-    // LigaturesAddon requires user activation for font access - load on first interaction
-    const loadLigatures = () => {
-      try {
-        this.#terminal.loadAddon(this.#ligaturesAddon)
-      } catch {
-        // Ignore if ligatures fail to load
-      }
-      element.removeEventListener('click', loadLigatures)
-      element.removeEventListener('keydown', loadLigatures)
-    }
-    element.addEventListener('click', loadLigatures, { once: true })
-    element.addEventListener('keydown', loadLigatures, { once: true })
-    this.#terminal.loadAddon(this.#webLinksAddon)
-    this.#terminal.loadAddon(this.#imageAddon)
     this.#terminal.loadAddon(this.#xtermReadline)
 
+    const usesGhosttySemantics =
+      typeof (this.#terminal as unknown as { ghostty?: unknown }).ghostty !==
+      'undefined'
+
     this.#terminal.attachCustomKeyEventHandler(event => {
+      let handled = false
+
       // Ctrl + Left Arrow (beginning of line)
       if (
         event.ctrlKey &&
@@ -155,34 +97,31 @@ export class TerminalManager {
         event.type === 'keydown'
       ) {
         this.#terminal.write('\x01') // Ctrl+A (ASCII SOH)
-        return false
-      }
-      // Ctrl + Right Arrow (end of line)
-      if (
+        handled = true
+      } else if (
         event.ctrlKey &&
         event.key === 'ArrowRight' &&
         event.type === 'keydown'
       ) {
+        // Ctrl + Right Arrow (end of line)
         this.#terminal.write('\x05') // Ctrl+E (ASCII ENQ)
-        return false
-      }
-
-      // Alt navigation callback
-      if (typeof onAltNavigation === 'function' && onAltNavigation(event)) {
-        return false
-      }
-
-      // Ctrl+Meta+C handling
-      if (
+        handled = true
+      } else if (
+        typeof onAltNavigation === 'function' &&
+        onAltNavigation(event)
+      ) {
+        handled = true
+      } else if (
         event.type === 'keydown' &&
         event.key === 'c' &&
         event.ctrlKey &&
         event.metaKey
       ) {
-        return false
+        // Ctrl+Meta+C handling
+        handled = true
       }
 
-      return true
+      return usesGhosttySemantics ? handled : !handled
     })
 
     void this.#scheduleInitialFit()
@@ -214,15 +153,7 @@ export class TerminalManager {
     if (!this.#initialized) return
     this.#resizeObserver?.disconnect()
     this.#resizeObserver = null
-    this.#webglAddon?.dispose()
     this.#fitAddon.dispose()
-    this.#searchAddon.dispose()
-    this.#clipboardAddon.dispose()
-    this.#unicode11Addon.dispose()
-    this.#serializeAddon.dispose()
-    this.#ligaturesAddon.dispose()
-    this.#webLinksAddon.dispose()
-    this.#imageAddon.dispose()
     this.#terminal.dispose()
     this.#initialized = false
   }

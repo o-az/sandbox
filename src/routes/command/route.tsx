@@ -1,6 +1,5 @@
 import * as z from 'zod/mini'
-import { Terminal } from '@xterm/xterm'
-import { SerializeAddon } from '@xterm/addon-serialize'
+import { Terminal } from 'ghostty-web'
 import { createFileRoute } from '@tanstack/solid-router'
 import { createSignal, onCleanup, onMount, Show } from 'solid-js'
 
@@ -10,6 +9,8 @@ import {
   normalizeCommandSearch,
   clearEncodedOutputParams,
 } from '#lib/url/command-search.ts'
+import { waitForTerminalRuntime } from '#lib/terminal/runtime.ts'
+import { TerminalSerializeAdapter } from '#lib/terminal/serialize.ts'
 
 export const Route = createFileRoute('/command')({
   component: RouteComponent,
@@ -42,7 +43,7 @@ function RouteComponent() {
 
   if (html) return <PreEncodedOutput html={html} />
 
-  return <FreshCommandOutput command={cmd} autorun={Boolean(autorun)} />
+  return <FreshCommandOutput command={cmd} autorun={!!autorun} />
 }
 
 async function decompressAndDecode(encoded: string): Promise<string> {
@@ -198,10 +199,10 @@ function PreEncodedOutput(props: { html: string }) {
 
   return (
     <main
-      class="min-h-screen h-screen overflow-auto p-4"
+      class="min-h-screen h-screen overflow-auto bg-[#0d1117] p-4"
       data-element="command-output">
       <pre
-        class="font-mono text-sm overflow-x-auto tabular-nums"
+        class="block w-full max-w-none font-mono text-sm text-[#f0f6fc] tabular-nums whitespace-pre-wrap break-words"
         innerHTML={htmlContent}
       />
       <Show when={showRerun()}>
@@ -236,9 +237,9 @@ function FreshCommandOutput(props: { command: string; autorun: boolean }) {
     }
 
     return (
-      <main class="min-h-screen h-screen overflow-auto p-4">
+      <main class="min-h-screen h-screen overflow-auto bg-[#0d1117] p-4">
         <pre class="font-mono text-sm text-white mb-4">
-          <span style="color:#3fb950">$</span> {props.command}
+          <span class="bg-[#3fb950]">$</span> {props.command}
         </pre>
         <div class="fixed bottom-4 right-4">
           <button
@@ -259,24 +260,32 @@ function FreshCommandOutput(props: { command: string; autorun: boolean }) {
 
   let disposed = false
   let terminal: Terminal
-  let serializeAddon: SerializeAddon | undefined
+  let serializer: TerminalSerializeAdapter | undefined
   onMount(async () => {
+    try {
+      await waitForTerminalRuntime()
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to initialize terminal runtime',
+      )
+      setLoading(false)
+      return
+    }
+
     terminal = new Terminal({
       cols: 120,
       rows: 24,
       convertEol: true,
       scrollback: 10_000,
-      allowProposedApi: true,
-      windowOptions: {
-        getWinSizePixels: true,
-      },
       theme: {
-        background: 'transparent',
+        background: '#0d1117',
+        foreground: '#f0f6fc',
       },
     })
 
-    serializeAddon = new SerializeAddon()
-    terminal.loadAddon(serializeAddon)
+    serializer = new TerminalSerializeAdapter(terminal)
 
     const hiddenContainer = document.createElement('div')
     Object.assign(hiddenContainer, {
@@ -323,9 +332,9 @@ function FreshCommandOutput(props: { command: string; autorun: boolean }) {
 
       await new Promise(resolve => setTimeout(resolve, 50))
 
-      if (disposed || !serializeAddon) return
+      if (disposed || !serializer) return
 
-      const rawHtml = serializeAddon.serializeAsHTML({
+      const rawHtml = serializer.serializeAsHTML({
         includeGlobalBackground: true,
       })
       const preMatch = rawHtml.match(/<pre[^>]*>([\s\S]*?)<\/pre>/)
@@ -342,12 +351,11 @@ function FreshCommandOutput(props: { command: string; autorun: boolean }) {
 
   onCleanup(() => {
     disposed = true
-    serializeAddon?.dispose()
     terminal?.dispose()
   })
 
   return (
-    <main class="min-h-screen h-screen overflow-auto p-4">
+    <main class="min-h-screen h-screen overflow-auto bg-[#0d1117] p-4">
       <Show when={!props.autorun}>
         <pre class="font-mono text-sm text-white mb-4">
           <span style="color:#3fb950">$</span> {props.command}
@@ -360,7 +368,10 @@ function FreshCommandOutput(props: { command: string; autorun: boolean }) {
         <div class="text-red-500">{error()}</div>
       </Show>
       <Show when={htmlContent()}>
-        <pre class="font-mono text-sm" innerHTML={htmlContent()!} />
+        <pre
+          class="block w-full max-w-none font-mono text-sm text-[#f0f6fc] tabular-nums whitespace-pre-wrap break-words"
+          innerHTML={htmlContent()!}
+        />
       </Show>
     </main>
   )

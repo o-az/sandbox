@@ -93,7 +93,7 @@ export function useTerminalSession({
 
   const fitAddon = terminalManager.fitAddon
   const xtermReadline = terminalManager.readline
-  const serializeAddon = terminalManager.serializeAddon
+  const serializer = terminalManager.serializeAddon
 
   // Command runner
   const { runCommand } = createCommandRunner({
@@ -116,7 +116,7 @@ export function useTerminalSession({
     isInteractiveMode,
   } = createInteractiveSession({
     terminal,
-    serializeAddon,
+    serializer,
     sessionId: session.sessionId,
     setStatus: mode => {
       if (mode === 'interactive') return // handled by state machine

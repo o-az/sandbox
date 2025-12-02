@@ -7,7 +7,7 @@ import {
   createEffect,
   createSignal,
 } from 'solid-js'
-import type { Terminal } from '@xterm/xterm'
+import type { Terminal } from 'ghostty-web'
 import type { JSX } from 'solid-js/h/jsx-runtime'
 import { useKeyDownEvent } from '@solid-primitives/keyboard'
 import { createActiveElement } from '@solid-primitives/active-element'
