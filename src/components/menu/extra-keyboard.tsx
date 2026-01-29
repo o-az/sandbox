@@ -127,12 +127,29 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
     focusTerminalTextarea()
   }
 
+  function handleKeyboardButton(event: TouchEvent | MouseEvent) {
+    // Focus FIRST before preventDefault - iOS requires this order
+    const textareaElement = textarea()
+    if (textareaElement) {
+      textareaElement.style.setProperty('width', '1px', 'important')
+      textareaElement.style.setProperty('height', '1px', 'important')
+      textareaElement.style.setProperty('opacity', '0.01', 'important')
+      textareaElement.style.setProperty('pointer-events', 'auto', 'important')
+      textareaElement.style.setProperty('position', 'absolute', 'important')
+      textareaElement.style.setProperty('top', '50%', 'important')
+      textareaElement.style.setProperty('left', '50%', 'important')
+      textareaElement.focus()
+    }
+    // Prevent default AFTER focus
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   async function handleSpecialKey(
     value: (typeof SPECIAL_KEYS)[number]['value'],
   ) {
     if (value === 'Keyboard') {
-      terminal()?.focus()
-      textarea()?.focus()
+      // Handled by onTouchStart/onMouseDown instead
       return
     }
     if (value === 'Paste') {
@@ -270,7 +287,17 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
             {item => (
               <button
                 type="button"
-                onClick={() => handleSpecialKey(item.value)}
+                onClick={
+                  item.value === 'Keyboard'
+                    ? undefined
+                    : () => handleSpecialKey(item.value)
+                }
+                onTouchEnd={
+                  item.value === 'Keyboard' ? handleKeyboardButton : undefined
+                }
+                onMouseDown={
+                  item.value === 'Keyboard' ? handleKeyboardButton : undefined
+                }
                 class="flex h-7 min-w-11 items-center justify-center rounded bg-[#1f2933] px-3 text-[11px] font-semibold tracking-wide text-white transition duration-150 hover:bg-[#2b3642] active:scale-95 active:bg-[#11151a]">
                 {item.label}
               </button>

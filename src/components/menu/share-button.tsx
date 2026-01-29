@@ -1,5 +1,5 @@
-import { createSignal, Show } from 'solid-js'
 import { writeClipboard } from '@solid-primitives/clipboard'
+import { createSignal, onCleanup, onMount, Show } from 'solid-js'
 
 import {
   applyCommandParams,
@@ -37,6 +37,7 @@ async function compressAndEncode(input: string): Promise<string> {
 
 export function ShareButton(props: ShareButtonProps) {
   const [copied, setCopied] = createSignal(false)
+  const [hasCommand, setHasCommand] = createSignal(false)
   const embed = useEmbedDetector()
 
   function getLastCommandFromHistory() {
@@ -61,7 +62,19 @@ export function ShareButton(props: ShareButtonProps) {
     return props.prefilledCommand?.trim() || ''
   }
 
+  function updateHasCommand() {
+    setHasCommand(!!getCommand())
+  }
+
+  updateHasCommand()
+
+  onMount(() => {
+    const intervalId = setInterval(updateHasCommand, 500)
+    onCleanup(() => clearInterval(intervalId))
+  })
+
   async function handleClick() {
+    updateHasCommand()
     const command = getCommand()
     if (!command) return
 
@@ -102,9 +115,15 @@ export function ShareButton(props: ShareButtonProps) {
     <Show when={!embed()}>
       <button
         type="button"
-        title="Share command"
+        title={hasCommand() ? 'Share command' : 'No command to share'}
+        disabled={!hasCommand()}
         onClick={handleClick}
-        class={`flex items-center bg-[#0c0f15]/90 px-2.5 py-1.5 text-xs uppercase tracking-wide text-white/70 transition hover:border-white/25 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#58a6ff] ${props.class ?? ''}`}>
+        class={`flex items-center bg-[#0c0f15]/90 px-2.5 py-1.5 text-xs uppercase tracking-wide transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#58a6ff] ${props.class ?? ''}`}
+        classList={{
+          'text-white/70 hover:border-white/25 hover:text-white cursor-pointer':
+            hasCommand(),
+          'text-white/20 cursor-not-allowed': !hasCommand(),
+        }}>
         {copied() ? <CheckIcon /> : <ShareIcon />}
       </button>
     </Show>

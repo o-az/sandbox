@@ -120,19 +120,32 @@ export class TerminalManager {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
     if (isMobile && this.#terminal.textarea) {
       const textarea = this.#terminal.textarea
-      textarea.style.width = '1px'
-      textarea.style.height = '1px'
-      textarea.style.opacity = '0.01'
-      textarea.style.fontSize = '16px'
-      textarea.setAttribute('inputmode', 'text')
-      textarea.setAttribute('enterkeyhint', 'send')
+
+      const applyMobileStyles = () => {
+        textarea.style.setProperty('width', '1px', 'important')
+        textarea.style.setProperty('height', '1px', 'important')
+        textarea.style.setProperty('opacity', '0.01', 'important')
+        textarea.style.setProperty('font-size', '16px', 'important')
+        textarea.style.setProperty('position', 'absolute', 'important')
+        textarea.style.setProperty('left', '0', 'important')
+        textarea.style.setProperty('top', '0', 'important')
+        textarea.setAttribute('inputmode', 'text')
+        textarea.setAttribute('enterkeyhint', 'send')
+        textarea.setAttribute('autocomplete', 'off')
+        textarea.setAttribute('autocorrect', 'off')
+        textarea.setAttribute('autocapitalize', 'off')
+      }
+
+      // Apply immediately and after a delay (in case ghostty-web resets)
+      applyMobileStyles()
+      setTimeout(applyMobileStyles, 100)
+      setTimeout(applyMobileStyles, 500)
 
       element.addEventListener('touchend', event => {
         if (event.target instanceof Node && element.contains(event.target)) {
-          requestAnimationFrame(() => {
-            this.#terminal.focus()
-            textarea.focus()
-          })
+          applyMobileStyles()
+          textarea.focus()
+          this.#terminal.focus()
         }
       })
     }
