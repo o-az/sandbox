@@ -176,7 +176,7 @@ function spawnPty(
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: process.env.HOME || '/workspace',
+    cwd: '/workspace',
     env: {
       ...process.env,
       TERM: 'xterm-256color',

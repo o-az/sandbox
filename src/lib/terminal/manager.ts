@@ -135,12 +135,22 @@ export class TerminalManager {
             // Strip bracketed paste markers if present and send clean text
             // biome-ignore lint/suspicious/noControlCharactersInRegex: terminal escape sequences
             const cleanText = text.replace(/\x1b\[20[01]~/g, '')
-            // Use the readline's internal readData method directly
+            // Check if readline has an active read in progress
             const internalReadline = this.#xtermReadline as unknown as {
+              activeRead?: unknown
               readData: (data: string) => void
             }
-            if (typeof internalReadline.readData === 'function') {
-              internalReadline.readData(cleanText)
+            if (internalReadline.activeRead !== undefined) {
+              // Readline is actively reading - use readData directly
+              if (typeof internalReadline.readData === 'function') {
+                internalReadline.readData(cleanText)
+              }
+            } else {
+              // Readline not ready yet - use terminal.input() as fallback
+              // This queues the input for when readline starts reading
+              if (typeof this.#terminal.input === 'function') {
+                this.#terminal.input(cleanText, true)
+              }
             }
           }
         },

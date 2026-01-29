@@ -56,6 +56,8 @@ RUN chmod +x /container-server/pty/startup.sh
 
 EXPOSE 3000 ${WS_PORT} 6969
 
+RUN mkdir -p /workspace
+
 WORKDIR /container-server
 
 CMD ["/container-server/pty/startup.sh"]
