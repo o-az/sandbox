@@ -80,7 +80,7 @@ export class TerminalManager {
 
     this.#terminal = new Terminal({
       fontSize: this.#isRetroFont ? 20 : 17,
-      scrollback: 5_000,
+      scrollback: 50_000,
       convertEol: true,
       cursorBlink: true,
       cursorStyle: 'underline',
