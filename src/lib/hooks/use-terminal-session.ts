@@ -294,6 +294,10 @@ export function useTerminalSession({
     awaitingInput = true
     state.actions.setAwaitingInput()
 
+    // Ensure bracketed paste mode is disabled before reading input
+    // (interactive programs like vi may have enabled it)
+    terminal.write('\x1b[?2004l')
+
     xtermReadline
       .read(prompt)
       .then(async rawCommand => {

@@ -166,6 +166,11 @@ export function createInteractiveSession({
     dataListener?.dispose()
     dataListener = undefined
 
+    // Reset terminal modes that interactive programs (like vi) may have changed
+    // \x1b[?2004l = disable bracketed paste mode
+    // \x1b[?1l = reset cursor keys to normal mode
+    terminal.write('\x1b[?2004l\x1b[?1l')
+
     setStatus(mode)
     if (mode === 'error') {
       interactiveReject?.(new Error('Interactive session ended with error'))

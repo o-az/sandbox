@@ -9,6 +9,7 @@ export const INTERACTIVE_COMMANDS = new Set([
   'vi',
   'vim',
   'vim.tiny',
+  'uv',
 ])
 
 export type ClientSessionState = {

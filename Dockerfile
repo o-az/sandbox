@@ -30,33 +30,23 @@ ENV FORCE_COLOR=3
 ENV TERM="xterm-256color"
 ENV COLORTERM="truecolor"
 ENV FOUNDRY_DISABLE_NIGHTLY_WARNING=1
-ENV PATH="/root/.foundry/bin:${PATH}"
 ENV NODE_OPTIONS="npm_config_yes=true"
+ENV PATH="/root/.local/bin:/root/.foundry/bin:${PATH}"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN curl --silent --show-error --location https://foundry.paradigm.xyz | bash \
-  && foundryup --network tempo
 
-RUN apt-get update --yes \
+# Foundry + uv + minimal tools (single layer, no build-essential)
+RUN curl --silent --show-error --location https://foundry.paradigm.xyz | bash \
+  && foundryup --network tempo \
+  && curl --silent --show-error --location https://astral.sh/uv/install.sh | sh \
+  && apt-get update --yes \
   && apt-get install --yes --no-install-recommends \
-  sudo \
-  curl \
   build-essential \
   vim-tiny \
   git \
   jq \
   && apt-get clean --yes \
-  && rm -rf /var/lib/apt/lists/*
-
-# uv (Python package manager)
-RUN curl --silent --show-error --location https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:${PATH}"
-
-# Node.js LTS
-COPY --from=node:lts-bookworm-slim /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:lts-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-  && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY --from=builder /usr/src/app/websocket.js /container-server/pty/websocket.js
 COPY --from=builder /usr/src/app/node_modules/node-pty /container-server/pty/node_modules/node-pty

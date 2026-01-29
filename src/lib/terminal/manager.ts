@@ -121,6 +121,33 @@ export class TerminalManager {
     // Open terminal (WASM already initialized via waitForTerminalRuntime)
     this.#terminal.open(element)
 
+    // Intercept paste events to handle bracketed paste markers
+    // (xterm-readline doesn't handle them, causing garbled input)
+    if (this.#terminal.textarea) {
+      this.#terminal.textarea.addEventListener(
+        'paste',
+        event => {
+          const text = event.clipboardData?.getData('text/plain')
+          if (text) {
+            event.preventDefault()
+            event.stopPropagation()
+            event.stopImmediatePropagation()
+            // Strip bracketed paste markers if present and send clean text
+            // biome-ignore lint/suspicious/noControlCharactersInRegex: terminal escape sequences
+            const cleanText = text.replace(/\x1b\[20[01]~/g, '')
+            // Use the readline's internal readData method directly
+            const internalReadline = this.#xtermReadline as unknown as {
+              readData: (data: string) => void
+            }
+            if (typeof internalReadline.readData === 'function') {
+              internalReadline.readData(cleanText)
+            }
+          }
+        },
+        { capture: true },
+      )
+    }
+
     // Expose terminal for debugging in development
     window.xterm = this.#terminal
 
