@@ -9,11 +9,9 @@ export type TerminalInitOptions = {
   onPaste?: (text: string) => void
 }
 
-const FONT_STORAGE_KEY = 'terminal-font'
 const DEFAULT_FONT = 'Lilex'
-const RETRO_FONT = 'Glass TTY VT220'
 
-const DEFAULT_THEME = {
+const THEME = {
   background: '#0d1117',
   foreground: '#f0f6fc',
   cursor: '#58a6ff',
@@ -36,55 +34,21 @@ const DEFAULT_THEME = {
   brightWhite: '#f0f6fc',
 }
 
-// Brighter, more saturated colors for retro CRT aesthetic
-const RETRO_THEME = {
-  background: '#0a0a0a',
-  foreground: '#33ff33',
-  cursor: '#33ff33',
-  selectionBackground: '#33ff3344',
-  black: '#0a0a0a',
-  red: '#ff5555',
-  green: '#33ff33',
-  yellow: '#ffff55',
-  blue: '#55ffff',
-  magenta: '#ff55ff',
-  cyan: '#55ffff',
-  white: '#ffffff',
-  brightBlack: '#555555',
-  brightRed: '#ff8888',
-  brightGreen: '#66ff66',
-  brightYellow: '#ffff88',
-  brightBlue: '#88ffff',
-  brightMagenta: '#ff88ff',
-  brightCyan: '#88ffff',
-  brightWhite: '#ffffff',
-}
-
-export function getStoredFontFamily(): string {
-  if (typeof localStorage === 'undefined') return DEFAULT_FONT
-  return localStorage.getItem(FONT_STORAGE_KEY) ?? DEFAULT_FONT
-}
-
 export class TerminalManager {
   #terminal: Terminal
   #fitAddon: FitAddon
   #serializeAddon: TerminalSerializeAdapter
   #initialized = false
-  #fontFamily: string
-  #isRetroFont: boolean
 
   constructor() {
-    this.#fontFamily = getStoredFontFamily()
-    this.#isRetroFont = this.#fontFamily === RETRO_FONT
-
     this.#terminal = new Terminal({
-      fontSize: this.#isRetroFont ? 20 : 17,
+      fontSize: 17,
       scrollback: 50_000,
       convertEol: true,
       cursorBlink: true,
       cursorStyle: 'underline',
-      fontFamily: `"${this.#fontFamily}", monospace`,
-      theme: this.#isRetroFont ? RETRO_THEME : DEFAULT_THEME,
+      fontFamily: `"${DEFAULT_FONT}", monospace`,
+      theme: THEME,
     })
 
     const terminalOptions = this.#terminal.options as {
@@ -132,6 +96,8 @@ export class TerminalManager {
             // Strip any existing bracketed paste markers
             // biome-ignore lint/suspicious/noControlCharactersInRegex: terminal escape sequences
             const cleanText = text.replace(/\x1b\[20[01]~/g, '')
+            // Store pasted command in history for sharing
+            saveCommandToHistory(cleanText)
             // Wrap in bracketed paste sequences for proper multi-line handling
             // \x1b[200~ = start bracketed paste, \x1b[201~ = end bracketed paste
             onPaste(`\x1b[200~${cleanText}\x1b[201~`)
@@ -268,5 +234,25 @@ export class TerminalManager {
     this.#fitAddon.dispose()
     this.#terminal.dispose()
     this.#initialized = false
+  }
+}
+
+function saveCommandToHistory(command: string) {
+  if (typeof localStorage === 'undefined') return
+  const trimmed = command.trim()
+  if (!trimmed) return
+
+  try {
+    const existing = localStorage.getItem('history')
+    const parsed: unknown = existing ? JSON.parse(existing) : []
+    const history = Array.isArray(parsed) ? (parsed as string[]) : []
+    // Add to front, remove duplicates, limit to 50
+    const updated = [trimmed, ...history.filter(c => c !== trimmed)].slice(
+      0,
+      50,
+    )
+    localStorage.setItem('history', JSON.stringify(updated))
+  } catch {
+    // Ignore localStorage errors
   }
 }

@@ -4,7 +4,6 @@ import {
   ExtraKeyboard,
   type ExtraKeyboardProps,
 } from '#components/menu/extra-keyboard.tsx'
-import { RetroButton } from '#components/menu/retro.tsx'
 import { ShareButton } from '#components/menu/share-button.tsx'
 import { useEmbedDetector } from '#components/embed-detector.tsx'
 
@@ -39,10 +38,6 @@ export function Menu(props: MenuProps) {
             getTerminalHtml={props.getTerminalHtml}
           />
         </MenuButton>
-
-        <div class="my-0.5 h-px w-full bg-white/10" />
-
-        <RetroButton />
 
         <div class="my-0.5 h-px w-full bg-white/10" />
 
