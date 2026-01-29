@@ -48,6 +48,10 @@ RUN apt-get update --yes \
   && apt-get clean --yes \
   && rm -rf /var/lib/apt/lists/*
 
+# uv (Python package manager)
+RUN curl --silent --show-error --location https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
 # Node.js LTS
 COPY --from=node:lts-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 COPY --from=node:lts-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules

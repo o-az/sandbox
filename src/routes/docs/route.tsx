@@ -78,7 +78,7 @@ function RouteComponent() {
         </h1>
         <h2>
           <a
-            href="https://git--019aab4bf72f75ba9fff5a382032de2d.web.val.run/"
+            href="https://sandbox.val.run"
             target="_blank"
             rel="noopener noreferrer"
             class="text-blue-400 font-semibold uppercase font-mono">
