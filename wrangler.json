@@ -1,5 +1,5 @@
 {
-  "$schema": "https://esm.sh/wrangler/config-schema.json",
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
   "name": "sandbox",
   "keep_vars": true,
   "workers_dev": true,
@@ -23,7 +23,7 @@
       "max_instances": 5,
       "class_name": "Sandbox",
       "image": "./Dockerfile",
-      "instance_type": "standard-1"
+      "instance_type": "standard-2"
     }
   ],
   "migrations": [
@@ -39,12 +39,15 @@
       "name": "RATE_LIMITER",
       "namespace_id": "1002",
       "simple": {
-        "limit": 10,
+        "limit": 30,
         "period": 60
       }
     }
   ],
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "logs": {
+      "enabled": true
+    }
   }
 }

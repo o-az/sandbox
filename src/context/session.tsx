@@ -3,7 +3,13 @@ import { makePersisted } from '@solid-primitives/storage'
 import { createContextProvider } from '@solid-primitives/context'
 
 export const STREAMING_COMMANDS = new Set(['anvil'])
-export const INTERACTIVE_COMMANDS = new Set(['chisel', 'node'])
+export const INTERACTIVE_COMMANDS = new Set([
+  'chisel',
+  'node',
+  'vi',
+  'vim',
+  'vim.tiny',
+])
 
 export type ClientSessionState = {
   sessionId: string

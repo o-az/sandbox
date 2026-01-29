@@ -1,4 +1,29 @@
-# Repository Guidelines
+# AGENTS.md
+
+## **IMPORTANT**
+
+- after any code changes, run `pnpm check && pnpm check:types` to ensure there are no lint or type errors.
+- when adding any new feature, first consult the relevant [architecture](#architecture) sections and see if there's already a native API you can use.
+
+## Commands
+
+Commands are defined in [package.json](./package.json) under the `scripts` section.
+
+## Architecture
+
+- **Server-Side JavaScript Runtimes**:
+  - [Cloudflare Workers](https://developers.cloudflare.com/llms.txt)
+  - [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/llms-full.txt)
+- **Meta-Framework**:
+  - [TanStack Start](https://context7.com/websites/tanstack_start/llms.txt?tokens=1000000)
+  - [TanStack Router](https://context7.com/websites/tanstack_router/llms.txt?tokens=1000000)
+- **UI Framework**:
+  - [SolidJS](https://context7.com/websites/solidjs/llms.txt?tokens=1000000)
+- **Styling**:
+  - [Tailwind CSS v4](https://context7.com/websites/tailwindcss/llms.txt?tokens=1000000)
+- **Terminal Emulation**:
+  - [xterm.js](https://context7.com/xtermjs/xterm.js/llms.txt?tokens=1000000)
+  - [ghostty-web](https://2md.sauce.wiki/gh_coder_ghostty-web@main.md)
 
 ## Project Structure & Module Organization
 

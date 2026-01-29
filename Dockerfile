@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1
-
 FROM oven/bun:1-debian AS builder
 
 USER root
@@ -7,6 +6,7 @@ USER root
 # node-pty native compilation
 RUN apt-get update --yes \
   && apt-get install --yes --no-install-recommends build-essential python3 \
+  && apt-get clean --yes \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
@@ -16,26 +16,37 @@ COPY ./websocket.ts ./websocket.ts
 RUN echo '{ "type": "module" }' > package.json \
   && bun add --production node-pty@beta crossws \
   && bun build ./websocket.ts \
-    --outfile='./websocket.js' \
-    --format='esm' \
-    --target='node' \
-    --external='node-pty' \
-    --minify
+  --outfile='./websocket.js' \
+  --format='esm' \
+  --target='node' \
+  --external='node-pty' \
+  --minify
 
-FROM docker.io/cloudflare/sandbox:0.6.1 AS runtime
+FROM docker.io/cloudflare/sandbox:0.7.0 AS runtime
 
 ENV CLICOLOR=1
+ENV WS_PORT=8080
 ENV FORCE_COLOR=3
 ENV TERM="xterm-256color"
 ENV COLORTERM="truecolor"
 ENV FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+ENV PATH="/root/.foundry/bin:${PATH}"
 ENV NODE_OPTIONS="npm_config_yes=true"
-ENV WS_PORT=8080
 
-COPY --from=ghcr.io/foundry-rs/foundry:latest /usr/local/bin/cast /usr/local/bin/cast
-COPY --from=ghcr.io/foundry-rs/foundry:latest /usr/local/bin/anvil /usr/local/bin/anvil
-COPY --from=ghcr.io/foundry-rs/foundry:latest /usr/local/bin/forge /usr/local/bin/forge
-COPY --from=ghcr.io/foundry-rs/foundry:latest /usr/local/bin/chisel /usr/local/bin/chisel
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN curl --silent --show-error --location https://foundry.paradigm.xyz | bash \
+  && foundryup --network tempo
+
+RUN apt-get update --yes \
+  && apt-get install --yes --no-install-recommends \
+  sudo \
+  curl \
+  build-essential \
+  vim-tiny \
+  git \
+  jq \
+  && apt-get clean --yes \
+  && rm -rf /var/lib/apt/lists/*
 
 # Node.js LTS
 COPY --from=node:lts-bookworm-slim /usr/local/bin/node /usr/local/bin/node

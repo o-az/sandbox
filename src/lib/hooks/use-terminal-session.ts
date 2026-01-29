@@ -84,6 +84,7 @@ export function useTerminalSession({
   let refreshShortcutTimer: number | undefined
   let inputLoopReady = false
   let pendingEmbedExecute = false
+  let disposed = false
 
   // Initialize terminal
   let altNavigationDelegate: ((event: KeyboardEvent) => boolean) | undefined
@@ -281,6 +282,7 @@ export function useTerminalSession({
 
   // Cleanup
   onCleanup(() => {
+    disposed = true
     window.clearTimeout(refreshShortcutTimer)
     debouncedHandleResize.clear?.()
     teardownSandbox()
@@ -288,7 +290,7 @@ export function useTerminalSession({
 
   // Input loop
   function startInputLoop() {
-    if (state.isInteractiveMode() || awaitingInput) return
+    if (disposed || state.isInteractiveMode() || awaitingInput) return
     awaitingInput = true
     state.actions.setAwaitingInput()
 
@@ -301,7 +303,7 @@ export function useTerminalSession({
       })
       .catch(error => {
         awaitingInput = false
-        if (state.isInteractiveMode()) return
+        if (disposed || state.isInteractiveMode()) return
         const errorMessage =
           error instanceof Error ? error.message : String(error)
         console.error('xtermReadline error:', errorMessage, error)
@@ -395,8 +397,9 @@ export function useTerminalSession({
     }
 
     const normalized = trimmed.toLowerCase()
+    const firstWord = normalized.split(/\s+/)[0] ?? ''
 
-    if (state.isSessionBroken() && normalized !== 'reset') {
+    if (state.isSessionBroken() && firstWord !== 'reset') {
       state.actions.setError('Session broken')
       displayError(
         'Sandbox shell is unavailable. Type `reset` or refresh the page to start a new session.',
@@ -405,13 +408,13 @@ export function useTerminalSession({
     }
 
     // Local commands
-    if (localCommands.has(normalized)) {
+    if (localCommands.has(firstWord)) {
       executeLocalCommand(trimmed)
       return
     }
 
     // Interactive commands
-    if (interactiveCommands.has(normalized)) {
+    if (interactiveCommands.has(firstWord)) {
       state.actions.setInteractive(trimmed)
       try {
         await startInteractiveSession(rawCommand)
