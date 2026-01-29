@@ -114,6 +114,25 @@ export class TerminalManager {
     this.#fitAddon.fit()
     this.#fitAddon.observeResize()
 
+    // Mobile keyboard fix: force focus on hidden textarea when terminal is tapped
+    // This ensures the virtual keyboard shows up on mobile devices (iOS/Android)
+    // Similar issue to Monaco Editor - xterm uses a hidden textarea for input
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (isMobile) {
+      element.addEventListener('touchend', event => {
+        // Only handle taps within the terminal area
+        if (event.target instanceof Node && element.contains(event.target)) {
+          // Small delay to ensure touch event completes before focusing
+          requestAnimationFrame(() => {
+            this.#terminal.focus()
+            if (this.#terminal.textarea) {
+              this.#terminal.textarea.focus()
+            }
+          })
+        }
+      })
+    }
+
     const usesGhosttySemantics =
       typeof (this.#terminal as unknown as { ghostty?: unknown }).ghostty !==
       'undefined'
