@@ -2,7 +2,7 @@
 
 ## **IMPORTANT**
 
-- after any code changes, run `pnpm check && pnpm check:types` to ensure there are no lint or type errors.
+- after any code changes, run `bun check && bun check:types` to ensure there are no lint or type errors.
 - when adding any new feature, first consult the relevant [architecture](#architecture) sections and see if there's already a native API you can use.
 
 ## Commands

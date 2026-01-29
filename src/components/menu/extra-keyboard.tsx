@@ -34,6 +34,8 @@ const SPECIAL_KEYS = [
   { value: 'ArrowLeft', label: '←' },
   { value: 'ArrowDown', label: '↓' },
   { value: 'ArrowRight', label: '→' },
+  { value: 'Keyboard', label: '⌨️' },
+  { value: 'Paste', label: '📋' },
 ] as const
 const LETTER_REGEX = /^[a-zA-Z]$/
 const KEYBOARD_OFFSET =
@@ -125,7 +127,28 @@ export function ExtraKeyboard(props: ExtraKeyboardProps) {
     focusTerminalTextarea()
   }
 
-  function handleSpecialKey(value: (typeof SPECIAL_KEYS)[number]['value']) {
+  async function handleSpecialKey(
+    value: (typeof SPECIAL_KEYS)[number]['value'],
+  ) {
+    if (value === 'Keyboard') {
+      terminal()?.focus()
+      textarea()?.focus()
+      return
+    }
+    if (value === 'Paste') {
+      try {
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          // biome-ignore lint/suspicious/noControlCharactersInRegex: terminal escape sequences
+          const cleanText = text.replace(/\x1b\[20[01]~/g, '')
+          terminal()?.write(`\x1b[200~${cleanText}\x1b[201~`)
+        }
+      } catch {
+        console.warn('Clipboard access denied')
+      }
+      focusTerminalTextarea()
+      return
+    }
     const modifiersSnapshot = snapshotModifiers()
     dispatch('virtualKey', { key: value, modifiers: modifiersSnapshot })
     clearLatchedModifiers()
