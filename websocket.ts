@@ -7,6 +7,7 @@ import { spawn, type IPty } from 'node-pty'
 import type { AdapterInternal, Peer } from 'crossws'
 
 const [DEFAULT_COLS, DEFAULT_ROWS] = [120, 32]
+// Use bash with proper readline config for multi-line paste
 const DEFAULT_SHELL = '/bin/bash --norc --noprofile'
 
 // Buffer settings for output batching (from xterm.js demo best practices)
@@ -184,6 +185,7 @@ function spawnPty(
       FORCE_COLOR: '1',
       CLICOLOR: '1',
       PS1: '\\[\\033[32m\\]$ \\[\\033[0m\\]',
+      PS2: '\\[\\033[32m\\]> \\[\\033[0m\\]',
       JQ_COLORS: '1;30:0;37:0;37:0;37:0;32:1;37:1;37',
       GCC_COLORS:
         'error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01',
@@ -227,6 +229,11 @@ function spawnPty(
       session.flushTimer = setTimeout(flushOutput, BUFFER_TIMEOUT_MS)
     }
   })
+
+  // Enable bracketed paste mode in bash readline (silently, output hidden with clear)
+  setTimeout(() => {
+    pty.write("bind 'set enable-bracketed-paste on' 2>/dev/null; clear\n")
+  }, 50)
 
   pty.onExit(({ exitCode, signal }) => {
     console.info('[pty] process exited', { sessionId, exitCode, signal })

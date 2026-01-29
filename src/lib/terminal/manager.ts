@@ -1,4 +1,3 @@
-import { Readline } from 'xterm-readline'
 import { FitAddon, Terminal } from 'ghostty-web'
 
 import { TerminalSerializeAdapter } from '#lib/terminal/serialize.ts'
@@ -7,6 +6,7 @@ export type TerminalInitOptions = {
   onAltNavigation?: (event: KeyboardEvent) => boolean
   onClearLine?: () => boolean
   onJumpToLineEdge?: (edge: 'start' | 'end') => boolean
+  onPaste?: (text: string) => void
 }
 
 const FONT_STORAGE_KEY = 'terminal-font'
@@ -69,7 +69,6 @@ export class TerminalManager {
   #terminal: Terminal
   #fitAddon: FitAddon
   #serializeAddon: TerminalSerializeAdapter
-  #xtermReadline: Readline
   #initialized = false
   #fontFamily: string
   #isRetroFont: boolean
@@ -98,7 +97,6 @@ export class TerminalManager {
 
     this.#fitAddon = new FitAddon()
     this.#serializeAddon = new TerminalSerializeAdapter(this.#terminal)
-    this.#xtermReadline = new Readline()
 
     this.#terminal.onBell(() => console.info('bell'))
   }
@@ -109,6 +107,7 @@ export class TerminalManager {
       onAltNavigation,
       onClearLine,
       onJumpToLineEdge,
+      onPaste,
     }: TerminalInitOptions = {},
   ) {
     if (this.#initialized) return this.#terminal
@@ -116,14 +115,12 @@ export class TerminalManager {
 
     // Load addons BEFORE opening (per ghostty-web demo best practice)
     this.#terminal.loadAddon(this.#fitAddon)
-    this.#terminal.loadAddon(this.#xtermReadline)
 
     // Open terminal (WASM already initialized via waitForTerminalRuntime)
     this.#terminal.open(element)
 
-    // Intercept paste events to handle bracketed paste markers
-    // (xterm-readline doesn't handle them, causing garbled input)
-    if (this.#terminal.textarea) {
+    // Intercept paste events and forward to the PTY with bracketed paste
+    if (this.#terminal.textarea && onPaste) {
       this.#terminal.textarea.addEventListener(
         'paste',
         event => {
@@ -132,26 +129,12 @@ export class TerminalManager {
             event.preventDefault()
             event.stopPropagation()
             event.stopImmediatePropagation()
-            // Strip bracketed paste markers if present and send clean text
+            // Strip any existing bracketed paste markers
             // biome-ignore lint/suspicious/noControlCharactersInRegex: terminal escape sequences
             const cleanText = text.replace(/\x1b\[20[01]~/g, '')
-            // Check if readline has an active read in progress
-            const internalReadline = this.#xtermReadline as unknown as {
-              activeRead?: unknown
-              readData: (data: string) => void
-            }
-            if (internalReadline.activeRead !== undefined) {
-              // Readline is actively reading - use readData directly
-              if (typeof internalReadline.readData === 'function') {
-                internalReadline.readData(cleanText)
-              }
-            } else {
-              // Readline not ready yet - use terminal.input() as fallback
-              // This queues the input for when readline starts reading
-              if (typeof this.#terminal.input === 'function') {
-                this.#terminal.input(cleanText, true)
-              }
-            }
+            // Wrap in bracketed paste sequences for proper multi-line handling
+            // \x1b[200~ = start bracketed paste, \x1b[201~ = end bracketed paste
+            onPaste(`\x1b[200~${cleanText}\x1b[201~`)
           }
         },
         { capture: true },
@@ -268,11 +251,6 @@ export class TerminalManager {
   get terminal() {
     if (!this.#initialized) throw new Error('Terminal not initialized')
     return this.#terminal
-  }
-
-  get readline() {
-    if (!this.#initialized) throw new Error('Terminal not initialized')
-    return this.#xtermReadline
   }
 
   get fitAddon() {

@@ -2,10 +2,7 @@ import { onCleanup, type Setter } from 'solid-js'
 import { debounce } from '@solid-primitives/scheduled'
 import { makeEventListener } from '@solid-primitives/event-listener'
 
-import {
-  initKeyboardInsets,
-  createVirtualKeyboardBridge,
-} from '#lib/terminal/keyboard.ts'
+import { initKeyboardInsets } from '#lib/terminal/keyboard.ts'
 import {
   startSandboxWarmup,
   type WarmupController,
@@ -14,8 +11,6 @@ import type { StatusMode } from '#components/status.tsx'
 import { TerminalManager } from '#lib/terminal/manager.ts'
 import { createTerminalState } from '#lib/terminal/state.ts'
 import type { ClientSessionState } from '#context/session.tsx'
-import { createCommandRunner } from '#lib/sandbox/command-runner.ts'
-import { createInteractiveSession } from '#lib/sandbox/interactive.ts'
 
 export type UseTerminalSessionOptions = {
   session: ClientSessionState
@@ -32,17 +27,15 @@ export type UseTerminalSessionOptions = {
 }
 
 export type UseTerminalSessionReturn = {
-  virtualKeyboardBridge: ReturnType<typeof createVirtualKeyboardBridge>
   terminalManager: TerminalManager
 }
+
+const textEncoder = new TextEncoder()
+const textDecoder = new TextDecoder()
 
 export function useTerminalSession({
   session,
   terminalElement,
-  streamingCommands,
-  interactiveCommands,
-  localCommands,
-  prompt,
   isHotReload = false,
   setStatusMode,
   setStatusMessage,
@@ -76,74 +69,24 @@ export function useTerminalSession({
   let cleanupInsets: (() => void) | undefined
   let resizeRaf: number | undefined
   let teardownScheduled = false
-  let awaitingInput = false
-  let hasPrefilledCommand = false
   let recoveringSession = false
   let isRefreshing = false
   let refreshShortcutPending = false
   let refreshShortcutTimer: number | undefined
-  let inputLoopReady = false
-  let pendingEmbedExecute = false
   let disposed = false
 
-  // Initialize terminal
-  let altNavigationDelegate: ((event: KeyboardEvent) => boolean) | undefined
-  let clearLineDelegate: (() => boolean) | undefined
-  let jumpToLineEdgeDelegate: ((edge: 'start' | 'end') => boolean) | undefined
+  // PTY WebSocket state
+  let ptySocket: WebSocket | undefined
+  let ptyConnected = false
+  let dataListener: import('ghostty-web').IDisposable | undefined
+
+  // Initialize terminal with PTY input handler
   const terminal = terminalManager.init(terminalElement, {
-    onAltNavigation: event => altNavigationDelegate?.(event) ?? false,
-    onClearLine: () => clearLineDelegate?.() ?? false,
-    onJumpToLineEdge: edge => jumpToLineEdgeDelegate?.(edge) ?? false,
+    onPaste: text => sendPtyInput(text),
   })
 
   const fitAddon = terminalManager.fitAddon
-  const xtermReadline = terminalManager.readline
   const serializer = terminalManager.serializeAddon
-
-  // Command runner
-  const { runCommand } = createCommandRunner({
-    sessionId: session.sessionId,
-    terminal,
-    setStatus: mode => {
-      if (mode === 'online') state.actions.setOnline()
-      else if (mode === 'offline') state.actions.setOffline()
-      else if (mode === 'error') state.actions.setError('')
-    },
-    displayError,
-    streamingCommands,
-  })
-
-  // Interactive session
-  const {
-    startInteractiveSession,
-    sendInteractiveInput,
-    notifyResize,
-    isInteractiveMode,
-  } = createInteractiveSession({
-    terminal,
-    serializer,
-    sessionId: session.sessionId,
-    setStatus: mode => {
-      if (mode === 'interactive') return // handled by state machine
-      if (mode === 'online') state.actions.setOnline()
-      else if (mode === 'error') state.actions.setError('')
-    },
-    onSessionExit: () => {
-      state.actions.setIdle()
-      startInputLoop()
-    },
-    logLevel: session.logLevel,
-  })
-
-  // Virtual keyboard
-  const virtualKeyboardBridge = createVirtualKeyboardBridge({
-    xtermReadline,
-    sendInteractiveInput,
-    isInteractiveMode: () => state.isInteractiveMode(),
-  })
-  altNavigationDelegate = virtualKeyboardBridge.handleAltNavigation
-  clearLineDelegate = virtualKeyboardBridge.handleClearLine
-  jumpToLineEdgeDelegate = virtualKeyboardBridge.handleJumpToLineEdge
 
   // Keyboard insets
   cleanupInsets = initKeyboardInsets()
@@ -184,15 +127,12 @@ export function useTerminalSession({
     )
   }
 
-  // Use term.onResize for PTY notification (xterm.js demo best practice)
-  // This fires whenever terminal dimensions actually change, more reliable than window resize
+  // Use term.onResize for PTY notification
   terminal.onResize(({ cols, rows }) => {
-    notifyResize({ cols, rows })
-    // Refresh readline display after resize to maintain cursor position
-    virtualKeyboardBridge.handleResize()
+    sendPtyJson({ type: 'resize', cols, rows })
   })
 
-  // Window resize triggers fit(), which may trigger term.onResize if dimensions change
+  // Window resize triggers fit()
   const debouncedHandleResize = debounce(() => {
     fitAddon.fit()
   }, 400)
@@ -204,14 +144,6 @@ export function useTerminalSession({
       resizeRaf = undefined
       debouncedHandleResize()
     })
-  })
-
-  // Ctrl+C handler
-  xtermReadline.setCtrlCHandler(() => {
-    if (state.isInteractiveMode() || state.isCommandInProgress()) return
-    xtermReadline.println('^C')
-    state.actions.setIdle()
-    startInputLoop()
   })
 
   // Refresh intent tracking
@@ -247,6 +179,7 @@ export function useTerminalSession({
     resizeRaf = undefined
     warmupController?.stop()
     cleanupInsets?.()
+    closePtySocket()
     terminalManager.dispose()
 
     // Skip sandbox destruction during HMR or page refresh
@@ -288,200 +221,185 @@ export function useTerminalSession({
     teardownSandbox()
   })
 
-  // Input loop
-  function startInputLoop() {
-    if (disposed || state.isInteractiveMode() || awaitingInput) return
-    awaitingInput = true
-    state.actions.setAwaitingInput()
+  // ============================================================================
+  // PTY WebSocket Functions
+  // ============================================================================
 
-    // Ensure bracketed paste mode is disabled before reading input
-    // (interactive programs like vi may have enabled it)
-    terminal.write('\x1b[?2004l')
+  function openPtySocket() {
+    const url = websocketUrl(window.location.origin, session.sessionId)
+    const socket = new WebSocket(url)
 
-    xtermReadline
-      .read(prompt)
-      .then(async rawCommand => {
-        awaitingInput = false
-        await processCommand(rawCommand)
-        startInputLoop()
-      })
-      .catch(error => {
-        awaitingInput = false
-        if (disposed || state.isInteractiveMode()) return
-        const errorMessage =
-          error instanceof Error ? error.message : String(error)
-        console.error('xtermReadline error:', errorMessage, error)
-        state.actions.setError(`Input error: ${errorMessage}`)
-        startInputLoop()
+    socket.binaryType = 'arraybuffer'
+    ptySocket = socket
+
+    socket.addEventListener('open', () => {
+      ptyConnected = true
+      state.actions.setOnline()
+
+      // Initialize PTY with terminal dimensions
+      sendPtyJson({
+        type: 'init',
+        cols: terminal.cols,
+        rows: terminal.rows,
       })
 
-    handlePrefilledCommand()
+      // Wire up terminal input to PTY
+      dataListener = terminal.onData(data => {
+        // Handle local commands (clear, reset) before sending to PTY
+        if (data === '\r') {
+          // Enter key - check for local commands after the fact
+          // The shell will handle the command, but we intercept reset/clear
+        }
+        sendPtyInput(data)
+      })
+
+      // Handle prefilled command
+      handlePrefilledCommand()
+    })
+
+    socket.addEventListener('message', handlePtyMessage)
+
+    socket.addEventListener('close', () => {
+      ptyConnected = false
+      dataListener?.dispose()
+      dataListener = undefined
+      if (!disposed) {
+        state.actions.setIdle()
+        // Attempt to reconnect after a short delay
+        setTimeout(() => {
+          if (!disposed && !ptyConnected) {
+            openPtySocket()
+          }
+        }, 1000)
+      }
+    })
+
+    socket.addEventListener('error', event => {
+      console.error('PTY socket error', event)
+      ptyConnected = false
+      state.actions.setError('Connection error')
+    })
   }
 
-  function handlePrefilledCommand() {
-    if (hasPrefilledCommand || !session.prefilledCommand) {
-      // No prefilled command, mark ready immediately
-      inputLoopReady = true
-      processPendingEmbedExecute()
+  function handlePtyMessage(event: MessageEvent) {
+    const { data } = event
+
+    if (typeof data === 'string') {
+      try {
+        const payload: unknown = JSON.parse(data)
+        if (
+          typeof payload === 'object' &&
+          payload !== null &&
+          'type' in payload
+        ) {
+          const messageType = (payload as { type: unknown }).type
+          if (messageType === 'pong' || messageType === 'ready') return
+          if (messageType === 'process-exit') {
+            const exitCode =
+              'exitCode' in payload &&
+              typeof (payload as { exitCode: unknown }).exitCode === 'number'
+                ? (payload as { exitCode: number }).exitCode
+                : 'unknown'
+            terminal.writeln(`\r\n[shell exited with code ${exitCode}]`)
+            state.actions.setBroken('Shell exited')
+            return
+          }
+        }
+      } catch {
+        terminal.write(data, () => {
+          if (session.logLevel === 'debug') console.info(serializer.serialize())
+        })
+      }
       return
     }
-    hasPrefilledCommand = true
+
+    if (data instanceof ArrayBuffer) {
+      const text = textDecoder.decode(new Uint8Array(data))
+      if (text) {
+        terminal.write(text, () => {
+          if (session.logLevel === 'debug') console.info(serializer.serialize())
+        })
+      }
+      return
+    }
+
+    if (data instanceof Uint8Array) {
+      const text = textDecoder.decode(data)
+      if (text) {
+        terminal.write(text, () => {
+          if (session.logLevel === 'debug') console.info(serializer.serialize())
+        })
+      }
+    }
+  }
+
+  function sendPtyInput(text: string) {
+    if (!text) return
+    if (!ptySocket || ptySocket.readyState !== WebSocket.OPEN) {
+      if (session.logLevel === 'debug') {
+        console.warn(
+          'PTY socket not open, input discarded:',
+          text.length,
+          'chars',
+        )
+      }
+      return
+    }
+    try {
+      ptySocket.send(textEncoder.encode(text))
+    } catch (error) {
+      if (session.logLevel === 'debug') {
+        console.error('Failed to send PTY input:', error)
+      }
+    }
+  }
+
+  function sendPtyJson(payload: unknown) {
+    if (!ptySocket || ptySocket.readyState !== WebSocket.OPEN) {
+      return
+    }
+    ptySocket.send(JSON.stringify(payload))
+  }
+
+  function closePtySocket() {
+    if (ptySocket && ptySocket.readyState === WebSocket.OPEN) {
+      ptySocket.close()
+    }
+    ptySocket = undefined
+    ptyConnected = false
+    dataListener?.dispose()
+    dataListener = undefined
+  }
+
+  // ============================================================================
+  // Command Handling
+  // ============================================================================
+
+  function handlePrefilledCommand() {
+    if (!session.prefilledCommand) return
 
     setTimeout(() => {
-      const dataTransfer = new DataTransfer()
-      dataTransfer.setData('text/plain', session.prefilledCommand ?? '')
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dataTransfer,
-      })
-      terminal.textarea?.dispatchEvent(pasteEvent)
+      sendPtyInput(session.prefilledCommand ?? '')
 
       if (session.embedMode && !session.autoRun) {
         terminal.options.disableStdin = true
       }
 
-      // Mark ready after prefilled command is pasted
-      inputLoopReady = true
-      processPendingEmbedExecute()
-
       if (session.autoRun) {
         setTimeout(() => {
-          dispatchEnterKey()
+          sendPtyInput('\r')
         }, 100)
       }
-    }, 50)
+    }, 100)
   }
 
   function executeEmbedCommand() {
     if (!session.embedMode) return
-
-    // If the input loop isn't ready yet, queue the execution for later
-    if (!inputLoopReady) {
-      pendingEmbedExecute = true
-      return
-    }
-
     terminal.options.disableStdin = false
-    dispatchEnterKey()
+    sendPtyInput('\r')
     setTimeout(() => {
       if (session.embedMode) terminal.options.disableStdin = true
     }, 200)
-  }
-
-  function processPendingEmbedExecute() {
-    if (!pendingEmbedExecute) return
-    pendingEmbedExecute = false
-    // Small delay to ensure everything is settled
-    setTimeout(() => executeEmbedCommand(), 50)
-  }
-
-  function dispatchEnterKey() {
-    try {
-      if (typeof terminal.input === 'function') {
-        terminal.input('\r', true)
-        return
-      }
-    } catch (error) {
-      console.debug('terminal.input failed', error)
-    }
-
-    const enterEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      code: 'Enter',
-      bubbles: true,
-      cancelable: true,
-    })
-    terminal.textarea?.dispatchEvent(enterEvent)
-  }
-
-  async function processCommand(rawCommand: string) {
-    const trimmed = rawCommand.trim()
-    if (!trimmed) {
-      state.actions.setIdle()
-      return
-    }
-
-    const normalized = trimmed.toLowerCase()
-    const firstWord = normalized.split(/\s+/)[0] ?? ''
-
-    if (state.isSessionBroken() && firstWord !== 'reset') {
-      state.actions.setError('Session broken')
-      displayError(
-        'Sandbox shell is unavailable. Type `reset` or refresh the page to start a new session.',
-      )
-      return
-    }
-
-    // Local commands
-    if (localCommands.has(firstWord)) {
-      executeLocalCommand(trimmed)
-      return
-    }
-
-    // Interactive commands
-    if (interactiveCommands.has(firstWord)) {
-      state.actions.setInteractive(trimmed)
-      try {
-        await startInteractiveSession(rawCommand)
-      } catch (error) {
-        state.actions.setIdle()
-        const message = error instanceof Error ? error.message : String(error)
-        displayError(message)
-      }
-      return
-    }
-
-    // Regular commands
-    state.actions.setRunningCommand(trimmed)
-
-    try {
-      await runCommand(rawCommand)
-      if (!state.isInteractiveMode()) {
-        state.actions.setIdle()
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (isFatalSandboxError(message)) {
-        handleFatalSandboxError(message)
-        return
-      }
-      state.actions.setError('Error')
-      displayError(message)
-    }
-  }
-
-  function executeLocalCommand(command: string) {
-    const normalized = command.trim().toLowerCase()
-
-    if (normalized === 'clear') {
-      terminal.clear()
-      state.actions.setIdle()
-      return
-    }
-
-    if (normalized === 'reset') {
-      void resetSandboxSession()
-    }
-  }
-
-  function displayError(message: string) {
-    terminal.writeln(`\u001b[31m${message}\u001b[0m`)
-  }
-
-  function isFatalSandboxError(message: string) {
-    const normalized = message.toLowerCase()
-    return (
-      normalized.includes('shell has died') ||
-      normalized.includes('session is dead') ||
-      normalized.includes('shell terminated unexpectedly') ||
-      normalized.includes('not ready or shell has died')
-    )
-  }
-
-  function handleFatalSandboxError(message: string) {
-    state.actions.setBroken('Session broken')
-    displayError(
-      `${message}\nType \`reset\` or refresh the page to create a new sandbox session.`,
-    )
   }
 
   async function resetSandboxSession() {
@@ -489,6 +407,8 @@ export function useTerminalSession({
     recoveringSession = true
     state.actions.setRecovering()
     terminal.writeln('\nResetting sandbox session...')
+
+    closePtySocket()
 
     try {
       await fetch('/api/reset', {
@@ -506,28 +426,39 @@ export function useTerminalSession({
     onClearSession()
     setTimeout(() => void window.location.reload(), 500)
   }
+  // Expose reset function on window for local command handling
+  ;(
+    window as unknown as { resetSandboxSession?: () => Promise<void> }
+  ).resetSandboxSession = resetSandboxSession
 
   // Initial sync and start after warmup completes
   syncStatus()
 
-  // Wait for initial warmup to complete before accepting commands
-  // This prevents race conditions where commands and warmup both try to create the session
+  // Wait for initial warmup to complete before connecting PTY
   warmupController.ready
     .then(() => {
-      // Re-fit and scroll after warmup content is written to ensure viewport is correct
+      // Re-fit and scroll after warmup content is written
       fitAddon.fit()
       terminal.scrollToBottom()
-      startInputLoop()
+      // Connect to PTY
+      openPtySocket()
     })
     .catch(error => {
       console.error('Warmup failed:', error)
       state.actions.setError('Warmup failed')
-      // Still start the input loop so user can interact
-      startInputLoop()
+      // Still try to connect PTY
+      openPtySocket()
     })
 
   return {
-    virtualKeyboardBridge,
     terminalManager,
   }
+}
+
+function websocketUrl(wsEndpoint: string, sessionId: string) {
+  const base = new URL(wsEndpoint)
+  base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
+  base.pathname = '/api/ws'
+  base.searchParams.set('sessionId', sessionId)
+  return base.toString()
 }

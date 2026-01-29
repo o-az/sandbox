@@ -16,7 +16,6 @@ import { Menu } from '#components/menu/index.tsx'
 import { Status, type StatusMode } from '#components/status.tsx'
 import { waitForTerminalRuntime } from '#lib/terminal/runtime.ts'
 import { useTerminalSession } from '#lib/hooks/use-terminal-session.ts'
-import type { createVirtualKeyboardBridge } from '#lib/terminal/keyboard.ts'
 
 const hot = import.meta.hot
 const hotData = hot?.data as { hmrReloaded?: boolean } | undefined
@@ -52,9 +51,6 @@ function Page() {
   >(null)
 
   let terminalRef!: HTMLDivElement
-  let virtualKeyboardBridge:
-    | ReturnType<typeof createVirtualKeyboardBridge>
-    | undefined
 
   let isActive = true
   onCleanup(() => {
@@ -105,8 +101,6 @@ function Page() {
           onClearSession: clearStoredSessionState,
         })
 
-        virtualKeyboardBridge = terminalSession.virtualKeyboardBridge
-
         // Expose terminal HTML serialization for sharing
         setGetTerminalHtml(() => () => {
           const { serializeAddon } = terminalSession.terminalManager
@@ -139,14 +133,8 @@ function Page() {
       <Menu
         prefilledCommand={prefilledCommand()}
         getTerminalHtml={getTerminalHtml()}
-        onVirtualKey={event => {
-          const { key, modifiers } = event.detail
-          if (!key) return
-          virtualKeyboardBridge?.sendVirtualKeyboardInput({
-            key,
-            ctrl: modifiers.includes('Control'),
-            shift: modifiers.includes('Shift'),
-          })
+        onVirtualKey={() => {
+          // Virtual keyboard input is now handled directly by the PTY
         }}
       />
 

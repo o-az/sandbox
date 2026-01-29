@@ -45,6 +45,7 @@ RUN curl --silent --show-error --location https://foundry.paradigm.xyz | bash \
   vim-tiny \
   git \
   jq \
+  zsh \
   && apt-get clean --yes \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
